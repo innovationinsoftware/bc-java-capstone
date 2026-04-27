@@ -4,69 +4,73 @@ Three days. Each day has a morning and an afternoon block. The deliverables colu
 
 This plan is a guideline, not a contract. Adjust to your team's pace, but don't push security work to Day 3 — there's never time.
 
-## Day 1 — Architecture & implementation
+## Day 1 — Resource Server + SPA shell
 
-Theme: get the backend reading and writing real data, get the SPA showing accounts. No security yet beyond what the scaffold gave you.
+Theme: get the Resource Server reading/writing Oracle, the SPA rendering accounts. The BFF is already wired in the scaffold — you don't need to log in yet.
 
 ### Morning (≈ 4 hrs)
 
 | Block | Activity | Deliverable |
 |---|---|---|
 | 30 min | Whole-team kickoff: read the spec, read the rubric, decide who owns what. | A 1-page `docs/team-plan.md` listing roles and which spec section each owns. |
-| 60 min | Clone scaffold. Verify `mvn test` green and `npm run dev` shows the placeholder page. Connect Oracle. Run `db/migration/V1__initial_schema.sql`. | Backend boots, hits `/health` through the SPA. |
-| 60 min | Implement `AccountEntity`, `TransactionEntity`, `BankUserEntity`, repositories. Use Copilot to scaffold; review every file. | All three entities mapped; `mvn test` green. |
-| 60 min | Wire `GET /api/v1/accounts` and `GET /api/v1/accounts/{id}` end-to-end against Oracle (skip ownership check for now — placeholder caller user). | curl returns seeded account JSON. |
+| 60 min | Clone scaffold. Bring up Oracle. Run `scripts/setup-oracle.sql`. Start mock-auth, resource-server, bff, and frontend (4 terminals). Verify `mvn test` green and the SPA shell renders. | Four services boot. SPA loads at `:5173`. |
+| 60 min | Read the existing entity, repository, and service code. Understand `JwtAuthConverter`'s first-login path. | Whole team can describe how a request flows browser → BFF → resource server → DB. |
+| 60 min | Verify `GET /api/v1/accounts` and `GET /api/v1/accounts/{id}` work end-to-end with a hand-crafted JWT (the scaffold's `http-tests/banking.http` file). Ownership 404s already wired in `AccountService`. | curl returns seeded account JSON; non-owned account → 404. |
 
 ### Afternoon (≈ 4 hrs)
 
 | Block | Activity | Deliverable |
 |---|---|---|
-| 90 min | Implement `POST /api/v1/transactions` for `DEPOSIT` and `WITHDRAWAL` only. Wire balance update inside `@Transactional`. Insufficient-funds path. | curl can deposit/withdraw; balance reflects in Oracle. |
-| 60 min | Implement `GET /api/v1/accounts/{id}/transactions`. | curl returns transaction list ordered desc. |
-| 60 min | Frontend: replace placeholder with `AccountsPage` calling `/api/v1/accounts` (no auth yet — point it at the placeholder caller). Show loading and empty states. | SPA at `/` lists accounts. |
-| 30 min | Frontend: `AccountDetailPage` route + `TransactionList`. | SPA `/accounts/:id` shows account + its transactions. |
+| 90 min | Verify `POST /api/v1/transactions` for `DEPOSIT` and `WITHDRAWAL` (already implemented). Confirm balance updates and `INSUFFICIENT_FUNDS` returns 422. | Test via `http-tests/banking.http` — both paths green. |
+| 60 min | Frontend: flesh out `AccountsPage` and `AccountDetailPage` (loading, empty, error states). Already wired to `/api/v1/accounts` — no token plumbing needed. | SPA at `/` lists accounts after sign-in. |
+| 60 min | Day 2 prep: read [04-security.md](./04-security.md) end-to-end. Identify which BFF proxy controllers exist (accounts, transactions, users) and which ones you'll add. | Team alignment on the BFF surface. |
+| 30 min | Verify `useMe()` hook + header sign-in/out UX. | Sign-in link visible when signed out; user email visible when signed in. |
 
 End-of-day-1 self-check:
 
+- [ ] Four services run: mock-auth (9000), resource-server (8081), bff (8080), frontend (5173).
+- [ ] Sign-in flow works end-to-end: click Sign in → mock-auth login → back to SPA, signed in.
+- [ ] DevTools shows a `JSESSIONID` cookie. **No tokens visible in JavaScript.**
 - [ ] Three Oracle tables exist with seed data.
-- [ ] Three GET endpoints return real data through the SPA.
-- [ ] `POST /api/v1/transactions` works for deposit and withdrawal.
-- [ ] `mvn test` and `npm test` are green (even if test count is low).
+- [ ] AccountsPage shows your accounts.
+- [ ] DEPOSIT and WITHDRAWAL work end-to-end.
+- [ ] `mvn test` is green.
 - [ ] Everyone has at least one merged commit.
 
-If you don't hit this list, **don't start security tomorrow** — finish today's work first thing.
+If you don't hit this list, **don't start the harder security work tomorrow** — finish today's work first thing.
 
-## Day 2 — Security integration
+## Day 2 — Transfers, Kafka, role gates
 
-Theme: every request is authenticated, every authorization rule is enforced, secrets are out of the repo.
+Theme: implement the missing transaction logic, wire Kafka, prove the BFF's session + RBAC story end-to-end.
 
 ### Morning (≈ 4 hrs)
 
 | Block | Activity | Deliverable |
 |---|---|---|
-| 30 min | Register Google OAuth client in Cloud Console. Add redirect URI. Get the client ID into `.env` (frontend) and env var (backend audience check). | A working Google client ID, captured in your `.env.example` (placeholder only — no secrets in repo). |
-| 90 min | Backend: configure resource server with `issuer-uri` + `audiences`. Add `JwtAuthConverter` for first-login user creation + role mapping. Lock everything except `/health` behind authentication. | curl with no Bearer = 401; curl with a hand-pasted Google ID token = 200. |
-| 60 min | Backend: ownership check in services. `GET /accounts/{notMine}` returns 404. `@PreAuthorize("hasRole('ADMIN')")` on admin endpoints. | Negative tests demonstrate ownership and role enforcement. |
-| 60 min | Frontend: install `react-oidc-context`, build `AuthProvider`, `LoginPage`, `CallbackPage`, `RequireAuth`. Wire `apiClient` to attach Bearer token. | Sign-in with Google works end-to-end through the SPA. |
+| 90 min | Resource Server: implement `TransactionService.applyTransferOut(...)` for the **internal** path (two rows, same `transferGroupId`, one DB transaction). | SPA can transfer between two of caller's own accounts; both rows visible; balances correct. |
+| 60 min | Resource Server: implement `applyTransferOut(...)` **external** path. Calls `PaymentService` (WireMock-stubbed). Failure path marks `FAILED`, no debit. Start WireMock with `scripts/start-wiremock.sh`. | Manual test with WireMock returning 200 vs 503. |
+| 60 min | Verify Kafka producer end-to-end. Console-consume the topic; submit transactions; watch events arrive keyed by accountId. | Console consumer prints one event per transaction. |
+| 30 min | Add `/api/v1/admin/users` proxy in the BFF. Confirm a `CUSTOMER` session gets 403; an `ADMIN` session gets 200. (Promote a user to `ADMIN` in Oracle: `UPDATE BANK_USERS SET ROLE='ADMIN' WHERE EMAIL='alice@example.com';`) | RBAC confirmed at the API layer. |
 
 ### Afternoon (≈ 4 hrs)
 
 | Block | Activity | Deliverable |
 |---|---|---|
-| 60 min | Implement `TRANSFER_OUT` (internal — both rows in same transaction). Add transfer-group ID. | SPA can transfer between two of caller's own accounts; both rows visible; balances correct. |
-| 60 min | Implement `PaymentService` + WireMock stub. `TRANSFER_OUT` to an external `counterparty` calls processor. Failure path marks transaction `FAILED`, no debit. | Manual test with WireMock returning 200 vs 503. |
-| 60 min | Implement Kafka publisher. Wire the post-commit publish from `TransactionService`'s caller (or `@TransactionalEventListener`). | Console consumer prints one event per transaction. |
-| 30 min | Implement `/admin/users` page (frontend) and `/api/v1/admin/users` (backend). Confirm 403 for non-admin. | An admin user can list users; a customer gets 403. |
-| 30 min | CORS lockdown: SPA-origin only. Sweep code for any committed secrets. | grep for `client_secret`, `password=`, `Bearer eyJ` — zero hits. |
+| 60 min | Frontend: build `AdminUsersPage` and the `/admin/users` route gated by `useMe()`. The nav link is hidden for non-admins (UX); the API enforces (security). | Both gates demonstrable. |
+| 60 min | Frontend: confirm CSRF on `/logout` works (form post with `_csrf` field). Confirm the SPA's `apiClient` attaches `X-XSRF-TOKEN` on POSTs. | Logout works; mutations work; manual missing-CSRF mutation gets 403. |
+| 60 min | Hardening sweep: `grep` repo for committed secrets, raw token strings, and `console.log(...)` of tokens. Configure CSRF cookie + Same-origin path correctly in `application.yml`. | Zero hits. Hardening checklist (in [04-security.md](./04-security.md)) all ✓. |
+| 60 min | Buffer: catch up if you're behind, or polish the UX. | — |
 
-End-of-day-2 self-check (security hardening checklist from [04-security.md](./04-security.md)):
+End-of-day-2 self-check (BFF security checklist from [04-security.md](./04-security.md)):
 
-- [ ] Issuer, audience, signature, expiry all validated.
-- [ ] CSRF disabled, sessions stateless, CORS specific.
-- [ ] Ownership checks return 404 (not 403) for non-owned accounts.
-- [ ] Admin gates enforced at URL filter **and** method security.
-- [ ] No secrets in git. `.env.example` exists; `.env` is `.gitignore`d.
-- [ ] Token in sessionStorage, never in URL or logs.
+- [ ] Sign in works. DevTools shows ONLY `JSESSIONID` and `XSRF-TOKEN` cookies. No tokens in localStorage, sessionStorage, or any JS variable.
+- [ ] Resource server: issuer + signature + expiry validated. Audience validated.
+- [ ] BFF: client_secret in env var, never in repo. CSRF protection on. Session is HttpOnly.
+- [ ] Logout clears the session — next API call returns 401, browser redirects to login.
+- [ ] Ownership checks return 404 for non-owned resources.
+- [ ] Admin gate enforced at URL filter **and** method security.
+- [ ] Internal transfer creates two rows; external transfer's failure path leaves balance unchanged.
+- [ ] Kafka events visible in the console consumer.
 
 ## Day 3 — Testing & security validation
 
@@ -77,7 +81,7 @@ Theme: prove it works, prove it's secure, demo it.
 | Block | Activity | Deliverable |
 |---|---|---|
 | 90 min | Write/extend unit tests until each row in [07-testing.md](./07-testing.md) "What to cover" table has a test. Use Copilot, review every assertion. | `mvn test` shows ≥ 1 test per service/controller, all green. |
-| 90 min | Write integration tests with `@SpringBootTest`, `@EmbeddedKafka`, MockMvc + `.with(jwt())`. At minimum: 401, 403, ownership, deposit happy path with Kafka emission, transfer happy path, insufficient-funds. | All listed scenarios green. |
+| 90 min | Write integration tests with `@SpringBootTest`, `@EmbeddedKafka`, MockMvc + `.with(jwt())` for the Resource Server. At minimum: 401, 403, ownership, deposit happy path with Kafka emission, transfer happy path, insufficient-funds. Add at least one BFF integration test that boots the BFF and confirms `/api/v1/users/me` returns 401 without a session and the OAuth login URL is exposed. | All listed scenarios green. |
 | 30 min | Run Checkmarx SAST. Triage findings into `docs/sast-findings.md`. Remediate the highs. | One row per finding; high-severity all fixed; rescan results recorded. |
 
 ### Afternoon (≈ 4 hrs)
@@ -92,14 +96,16 @@ Theme: prove it works, prove it's secure, demo it.
 
 ## Realistic warnings
 
-- **Day-1 trap:** Spending three hours debugging an Oracle JDBC connection. If it isn't working in 30 min, ask the instructor — it's almost always a tnsnames/service-name issue, not your code.
-- **Day-2 trap:** Spending two hours on Google's OAuth consent screen configuration. The "Testing" mode with team members added as test users is enough; do **not** try to publish the app.
-- **Day-3 trap:** Trying to fix every Checkmarx finding. Triage first, fix the highs, accept-with-rationale the rest. Time-box the SAST block to 30 min as written.
+- **Day-1 trap:** Spending three hours debugging Oracle JDBC. If it isn't working in 30 min, ask the instructor — it's almost always a tnsnames/service-name issue, not your code.
+- **Day-1 trap:** Trying to start the BFF before the mock-auth server is up. The BFF will fail to fetch `/.well-known/openid-configuration` and refuse to boot. Always start mock-auth first.
+- **Day-2 trap:** Going down the rabbit hole of replacing the mock auth server with a real IdP (Google, Okta). Don't. Document it as future work in `docs/security-decisions.md` and move on.
+- **Day-2 trap:** Forgetting the Vite proxy. If the SPA on `:5173` calls `/api/v1/...` and gets a 404, you didn't start the proxy. The browser **must** see the BFF as same-origin.
+- **Day-3 trap:** Trying to fix every Checkmarx finding. Triage first, fix the highs, accept-with-rationale the rest.
 
 ## What "behind schedule" looks like
 
-If at the end of Day 1 you don't have GET endpoints reading from Oracle, you're behind. Consider dropping `TRANSFER_OUT` external (the WireMock path) from Day 2 — internal transfer + Kafka is enough to clear "Meets" and you can come back to external if there's time on Day 3.
+If at the end of Day 1 you don't have all four services running and a working sign-in, you're behind. Pair the team on the auth flow Day 2 morning before anything else.
 
-If at the end of Day 2 you don't have a working Google login, **stop and pair the whole team on it Wednesday morning** before doing anything else. There is no testing rubric to score if the security layer doesn't work.
+If at the end of Day 2 you don't have internal transfers + Kafka working, drop the external transfer (WireMock path) entirely. Internal transfer + Kafka is enough to clear "Meets."
 
 Next: [Deliverables & Rubric Mapping](./09-deliverables-and-rubric.md).

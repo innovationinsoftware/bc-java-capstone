@@ -1,50 +1,54 @@
 # 3-Day Plan
 
-A guideline, not a contract. Adjust to your team's pace — but **don't push security to Day 3**, there's never time.
+A guideline. Adjust to your team's pace.
 
-## Day 1 — Get the data flowing
+## Day 1 — Get all four services running, sign in works
 
-Theme: backend reads/writes Oracle, SPA shows accounts. No real auth yet.
+Theme: stand up the stack, verify the BFF flow end-to-end as a starting point. The scaffold has the OAuth wiring done — you mostly verify and explore.
 
 **Morning**
-- Kickoff: read the spec and the rubric. Decide who owns what.
-- Clone the [scaffold](./scaffolding/). Follow `scaffolding/README.md` to bring up Oracle and start the backend. Verify `GET /health` returns 200.
-- Read the entity, repository, and controller code that's already there — you'll be extending it, not rewriting it.
-- Run Flyway against your Oracle (the scaffold does this on startup). Add a migration that seeds a couple of `ACCOUNTS` rows owned by your future Google `userId` (you'll know the `userId` after your first login on Day 2 — for Day 1, hand-insert one BANK_USERS row + a few accounts).
+- Read the spec and the rubric. Decide who owns what.
+- Run `scripts/verify-prereqs.ps1`. Resolve any `[FAIL]` rows before going further.
+- Run `scripts/setup-oracle.sql` once. Bring up four terminals (`.ps1` on Windows, `.sh` on bash/Git Bash):
+  - Terminal 1: `start-mock-auth` (port 9000, must start first)
+  - Terminal 2: `start-resource-server` (port 8081)
+  - Terminal 3: `start-bff` (port 8080)
+  - Terminal 4: `start-frontend` (port 5173)
+- Open `http://localhost:5173`. Click Sign in. Log in as `alice`. Confirm you land back signed in.
+- Open DevTools → Application. Confirm cookies show `JSESSIONID` (HttpOnly) and `XSRF-TOKEN`. Confirm `sessionStorage` and `localStorage` are empty.
 
 **Afternoon**
-- Verify `GET /api/v1/accounts` and `GET /api/v1/accounts/{id}` work via the scaffold's `http-tests/banking.http` (using a hand-crafted user row). Ownership and 404-not-403 are already wired in `AccountService`.
-- `POST /api/v1/transactions` for DEPOSIT and WITHDRAWAL **already works** — exercise it via curl/HTTP file. Confirm balance updates and `INSUFFICIENT_FUNDS` returns 422.
-- Frontend: bring up the SPA (`npm run dev`). The route stubs exist — flesh out the loading/empty/error states in `AccountsPage` and `AccountDetailPage` if they aren't yet.
+- Read the existing entity, service, and controller code in `resource-server/`. Trace a request: SPA → BFF proxy controller → WebClient call → Resource Server → DB.
+- Verify `GET /api/v1/accounts` and `GET /api/v1/accounts/{id}` work (already implemented).
+- Verify `POST /api/v1/transactions` for DEPOSIT and WITHDRAWAL (already implemented).
+- Frontend: flesh out `AccountsPage` and `AccountDetailPage` (loading/empty/error states).
 
 **End of Day 1, you should have:**
-- [ ] Oracle tables exist and are seeded
-- [ ] Three GET endpoints return real data
-- [ ] Deposit and withdrawal work via curl
-- [ ] SPA shows your accounts
+- [ ] Four services running, sign-in flow works
+- [ ] DevTools confirms NO tokens in JS storage
+- [ ] DEPOSIT and WITHDRAWAL work end-to-end through the SPA
 - [ ] Every team member has at least one merged commit
 
-## Day 2 — Lock it down
+## Day 2 — Transfers, Kafka, RBAC
 
-Theme: real Google login, ownership and roles enforced, secrets out of the repo.
+Theme: implement the missing transaction logic, prove RBAC + CSRF.
 
 **Morning**
-- Register the Google OAuth client in Cloud Console (see scaffold README for the exact steps).
-- Drop the client ID into `.env` (`GOOGLE_CLIENT_ID`) and `frontend/.env.local` (`VITE_GOOGLE_CLIENT_ID`). The resource server and `JwtAuthConverter` (first-login + role mapping) are **already wired** — restart the backend and they pick up the env var.
-- Sign in via the SPA (`/login`). Confirm a row appears in `BANK_USERS` for your Google `sub`. Make yourself ADMIN via SQL if you need it.
-- Verify `/admin/users` returns 403 for a customer Google account and 200 for the admin one. Verify accessing another user's `/api/v1/accounts/{id}` returns 404.
+- Resource Server: implement `TransactionService.applyTransferOut(...)` for **internal** transfers (two rows, one DB transaction, shared `transferGroupId`).
+- Resource Server: implement external `TRANSFER_OUT` calling the WireMock-stubbed Payment Processor. Failure path → `FAILED`, no debit. Start WireMock with `./scripts/start-wiremock.sh`.
+- Verify Kafka events with a console consumer.
 
 **Afternoon**
-- Implement internal `TRANSFER_OUT` in `TransactionService.applyTransferOut(...)` (two rows, same `transferGroupId`, one DB transaction). Replace the `UnsupportedOperationException`.
-- Implement external `TRANSFER_OUT` — call `PaymentService.submitExternalTransfer(...)`; on failure mark `FAILED`, do not debit, let the exception flow up to a 502 response.
-- Verify the Kafka publisher: tail the topic and confirm one event per row appears with the right key.
-- CORS is already locked to `SPA_ORIGIN`. `grep` the repo for committed secrets — fix any hits.
+- Add `/api/v1/admin/users` proxy on the BFF. Promote a user to ADMIN: `UPDATE BANK_USERS SET ROLE='ADMIN' WHERE EMAIL='...';`
+- Frontend: `AdminUsersPage`. Hide the nav link via `useMe()` for non-admins (UX). API rejects with 403 (security).
+- Confirm CSRF: a POST without `X-XSRF-TOKEN` returns 403; logout works via the form post.
+- Hardening sweep: `grep -r "client_secret\|password=\|Bearer eyJ"` returns zero hits.
 
 **End of Day 2, you should have:**
-- [ ] Real Google login works in the SPA
-- [ ] Ownership returns 404; admin gate returns 403 for customers
-- [ ] Issuer + audience + signature + expiry all validated
-- [ ] Kafka events appear when transactions complete
+- [ ] Internal + external transfers working
+- [ ] Kafka events arriving when transactions complete
+- [ ] CSRF enforced on mutations
+- [ ] RBAC enforced (CUSTOMER vs ADMIN, both at URL and method levels)
 - [ ] No secrets in the repo
 
 ## Day 3 — Prove it and demo it
@@ -52,23 +56,24 @@ Theme: real Google login, ownership and roles enforced, secrets out of the repo.
 Theme: tests, scans, polish, demo.
 
 **Morning**
-- Unit tests for services (deposit, withdrawal, transfer, insufficient funds, ownership).
-- Integration tests with `@SpringBootTest` + MockMvc + `.with(jwt())` + `@EmbeddedKafka`. At minimum: 401, 403, ownership, deposit happy path with Kafka emission.
+- Unit tests for Resource Server services (deposit, withdrawal, transfer, insufficient funds, ownership).
+- Integration tests with `@SpringBootTest` + MockMvc + `.with(jwt())` + `@EmbeddedKafka`. Plus one BFF integration test confirming `/api/v1/users/me` is 401 without a session.
 - Run **Checkmarx SAST**. Triage findings into `docs/sast-findings.md`. Fix the highs.
 
 **Afternoon**
-- Run **DAST** baseline and the 3 custom payload classes. Document in `docs/dast-payloads.md`.
+- Run **DAST** baseline + 3 custom payloads. Document in `docs/dast-payloads.md`.
 - Polish: clone-and-run README, one-page architecture doc, sweep TODOs.
 - Demo dry-run as a team. Decide who speaks for what.
-- **Final demo (15 min).**
+- **Final demo (15 min).** Centerpiece: open DevTools and show that there are no tokens in JS — only the cookie.
 
 ## Common traps
 
-- **Day 1:** an hour debugging Oracle JDBC. If it doesn't work in 30 min, ask the instructor.
-- **Day 2:** an hour on Google's OAuth consent screen. "Testing" mode with team members as test users is enough — don't try to publish.
-- **Day 3:** trying to fix every Checkmarx finding. Triage, fix the highs, rationale for the rest. Time-box it.
+- **Day 1:** Starting BFF before mock-auth is up. The BFF will fail to fetch `/.well-known/openid-configuration` and refuse to boot. Always start mock-auth first.
+- **Day 1:** Forgetting the Vite proxy. If `/api/...` calls return 404 from the SPA, the proxy isn't running. The browser must see same-origin.
+- **Day 2:** Trying to swap the mock auth server for Google. Don't, on Day 2. Document it as future work and move on.
+- **Day 3:** Trying to fix every Checkmarx finding. Triage, fix the highs, rationale for the rest.
 
 ## If you're behind
 
 - Drop the **external** transfer (WireMock path). Internal transfer + Kafka still clears "Meets."
-- If Day 2 ends without working Google login, **stop everything else Day 3 morning** and pair the whole team on it. There's nothing to test if auth doesn't work.
+- If Day 1 ends without a working sign-in, **stop everything else Day 2 morning** and pair the whole team on it. There's nothing to test if auth doesn't work.

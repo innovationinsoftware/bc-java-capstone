@@ -1,184 +1,235 @@
 # 05 — React Frontend
 
+Because the capstone uses the **BFF pattern** (see [Security](./04-security.md)), the frontend is dramatically simpler than a pure-SPA build. There is no OAuth library, no `AuthProvider`, no `RequireAuth`/`RequireRole`, no `CallbackPage`. Spring Security gates the API at the network layer; the SPA just makes calls and reacts to 401s.
+
 ## Stack
 
-- **Vite** + **React 18** + JavaScript or TypeScript (TS recommended; the slides demo it).
-- **react-router-dom v6** — `BrowserRouter`, `Routes`, `Route`, `Link`, `NavLink`, `Outlet`, `useParams`, `useNavigate`, `useLocation`. All covered in Module 9.
-- **OIDC client** — `oidc-client-ts` with `react-oidc-context`, or a similar maintained library. **Do not implement PKCE yourself.**
-- **HTTP** — `fetch` is fine; `axios` is fine. Pick one and use it consistently.
-- **Styling** — plain CSS or CSS modules. Don't pull in a UI library you've never used; you don't have time.
+- **Vite** + **React 18** + JavaScript or TypeScript.
+- **react-router-dom v6** — `BrowserRouter`, `Routes`, `Route`, `Link`, `NavLink`, `Outlet`, `useParams`, `useNavigate`. All covered in Module 9.
+- **HTTP** — `fetch` with `credentials: 'same-origin'`. No `axios` needed; no auth library.
+- **Styling** — plain CSS or CSS modules.
 
 ## Routes
 
 | Path | Layout | Auth | Component | Purpose |
 |---|---|---|---|---|
-| `/login` | none | public | `LoginPage` | "Sign in with Google" button |
-| `/callback` | none | public | `CallbackPage` | Handles the OAuth redirect, exchanges code for token, redirects to `/` |
-| `/` | `AppLayout` | authenticated | `AccountsPage` | List the user's accounts |
-| `/accounts/:accountId` | `AppLayout` | authenticated, ownership | `AccountDetailPage` | One account + its transactions |
-| `/transactions/new` | `AppLayout` | authenticated | `NewTransactionPage` | Form to submit a transaction |
-| `/admin/users` | `AppLayout` | role `ADMIN` | `AdminUsersPage` | List users (visible only to admins) |
-| `*` | none | n/a | `NotFoundPage` | 404 |
+| `/` | `AppLayout` | session | `AccountsPage` | List the user's accounts |
+| `/accounts/:accountId` | `AppLayout` | session, ownership | `AccountDetailPage` | One account + its transactions |
+| `/transactions/new` | `AppLayout` | session | `NewTransactionPage` | Form to submit a transaction |
+| `/admin/users` | `AppLayout` | session, role ADMIN | `AdminUsersPage` | List users (visible only to admins) |
+| `*` | `AppLayout` | n/a | `NotFoundPage` | 404 |
 
-This is exactly the layout-route pattern from Module 9 slides 17–18: `<Route element={<AppLayout/>}>` wraps the authenticated pages, login/callback live outside it.
+Notice what's gone:
 
-## Components
+- No `/login` — login is `<a href="/oauth2/authorization/mock-auth">Sign in</a>`. That URL is a Spring endpoint on the BFF, not a React route.
+- No `/callback` — Spring handles the OAuth callback at `/login/oauth2/code/mock-auth`. The browser never lands on a React route during the auth flow.
 
-The component tree your scaffold expects (rough):
+## Same-origin via Vite proxy (dev)
+
+```js
+// frontend/vite.config.js
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api':    { target: 'http://localhost:8080', changeOrigin: true },
+      '/login':  { target: 'http://localhost:8080', changeOrigin: true },
+      '/logout': { target: 'http://localhost:8080', changeOrigin: true },
+      '/oauth2': { target: 'http://localhost:8080', changeOrigin: true },
+    },
+  },
+});
+```
+
+From the browser's point of view, everything is on `localhost:5173`. The session cookie set by the BFF is `localhost:5173`-scoped. CORS does not apply.
+
+For production: `npm run build` produces `dist/`. Copy it into `backend/bff/src/main/resources/static/` and the BFF serves it directly.
+
+## Component tree
 
 ```
 src/
-├── main.tsx                     // Vite entry
-├── App.tsx                      // <BrowserRouter><AuthProvider>...</AuthProvider></BrowserRouter>
-├── auth/
-│   ├── AuthProvider.tsx         // wraps react-oidc-context
-│   ├── RequireAuth.tsx          // redirects to /login if not authenticated
-│   └── RequireRole.tsx          // redirects to / if role mismatch
+├── main.jsx                     // Vite entry, BrowserRouter
+├── App.jsx                      // Routes — flat, no auth providers
 ├── routes/
-│   ├── AppLayout.tsx            // header (with logout) + nav + <Outlet/>
-│   ├── LoginPage.tsx
-│   ├── CallbackPage.tsx
-│   ├── AccountsPage.tsx
-│   ├── AccountDetailPage.tsx
-│   ├── NewTransactionPage.tsx
-│   ├── AdminUsersPage.tsx
-│   └── NotFoundPage.tsx
+│   ├── AppLayout.jsx            // header (with sign in/out) + nav + <Outlet/>
+│   ├── AccountsPage.jsx
+│   ├── AccountDetailPage.jsx
+│   ├── NewTransactionPage.jsx
+│   ├── AdminUsersPage.jsx
+│   └── NotFoundPage.jsx
 ├── components/
-│   ├── AccountCard.tsx
-│   ├── TransactionList.tsx
-│   ├── TransactionForm.tsx
-│   └── ErrorBanner.tsx
+│   ├── AccountCard.jsx
+│   ├── TransactionList.jsx
+│   ├── TransactionForm.jsx
+│   └── ErrorBanner.jsx
 ├── api/
-│   ├── apiClient.ts             // fetch wrapper, attaches Bearer token
-│   ├── accounts.ts              // listAccounts(), getAccount(id), getTransactions(id)
-│   ├── transactions.ts          // submitTransaction(payload)
-│   └── users.ts                 // getMe(), listUsers() (admin)
+│   ├── apiClient.js             // fetch wrapper, CSRF, 401 handling
+│   ├── accounts.js
+│   ├── transactions.js
+│   └── users.js
 └── hooks/
-    ├── useApi.ts                // small wrapper that returns {data, loading, error}
-    └── useAuthUser.ts           // returns the current user profile + role
+    └── useMe.js                 // returns { user, loading, error }; null user = signed out
 ```
 
-## Auth integration
+Compared to the pure-SPA design, gone: `auth/AuthProvider.jsx`, `auth/RequireAuth.jsx`, `auth/RequireRole.jsx`, `routes/LoginPage.jsx`, `routes/CallbackPage.jsx`.
 
-Wrap the app in your OIDC provider once:
+## The API client
 
-```tsx
-// auth/AuthProvider.tsx
-const oidcConfig: AuthProviderProps = {
-  authority: "https://accounts.google.com",
-  client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-  redirect_uri: "http://localhost:5173/callback",
-  response_type: "code",
-  scope: "openid email profile",
-  // PKCE is on by default in oidc-client-ts
-};
+One module, one place that knows about cookies and CSRF:
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  return <OidcAuthProvider {...oidcConfig}>{children}</OidcAuthProvider>;
+```js
+// api/apiClient.js
+const LOGIN_URL = "/oauth2/authorization/mock-auth";
+
+function readCsrfToken() {
+  return document.cookie
+    .split('; ')
+    .find(row => row.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1];
 }
-```
 
-Use a `RequireAuth` component to guard the layout route:
-
-```tsx
-function RequireAuth({ children }: { children: ReactElement }) {
-  const auth = useAuth();
-  const location = useLocation();
-  if (auth.isLoading) return <Spinner />;
-  if (!auth.isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
-  return children;
+export class ApiError extends Error {
+  constructor(status, body) {
+    super(body?.detail || body?.title || `HTTP ${status}`);
+    this.status = status;
+    this.body = body;
+  }
 }
-```
 
-`RequireRole` is similar but checks `useAuthUser().role`.
+export async function apiFetch(path, init = {}) {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const headers = new Headers(init.headers ?? {});
+  if (!headers.has('Content-Type') && init.body) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrf = readCsrfToken();
+    if (csrf) headers.set('X-XSRF-TOKEN', csrf);
+  }
 
-## Calling the API
-
-Centralise the auth header in **one** place:
-
-```ts
-// api/apiClient.ts
-import { getAccessToken } from "../auth/tokens";
-
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8081";
-
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getAccessToken();
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(path, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : "",
-      ...(init.headers ?? {}),
-    },
+    headers,
+    credentials: 'same-origin',
   });
+
   if (res.status === 401) {
-    redirectToLogin();          // clear stale token, go to /login
-    throw new Error("Unauthorized");
+    // No session — bounce to login. Spring will redirect back here after auth.
+    window.location.assign(LOGIN_URL);
+    throw new ApiError(401, { detail: 'Unauthorized' });
   }
   if (!res.ok) {
-    const problem = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, problem);
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body);
   }
-  return (res.status === 204 ? undefined : await res.json()) as T;
+  return res.status === 204 ? undefined : res.json();
 }
 ```
 
-Then per-resource modules call `apiFetch`:
+That's the entire auth surface in JavaScript. No tokens, no localStorage, no oidc-client-ts.
 
-```ts
-// api/accounts.ts
-export const listAccounts = () => apiFetch<Account[]>("/api/v1/accounts");
-export const getAccount = (id: string) => apiFetch<Account>(`/api/v1/accounts/${id}`);
-export const getTransactions = (id: string) =>
-  apiFetch<Transaction[]>(`/api/v1/accounts/${id}/transactions`);
+Per-resource modules wrap `apiFetch`:
+
+```js
+// api/accounts.js
+export const listAccounts = () => apiFetch('/api/v1/accounts');
+export const getAccount = (id) => apiFetch(`/api/v1/accounts/${id}`);
+export const getTransactions = (id) => apiFetch(`/api/v1/accounts/${id}/transactions`);
 ```
 
-Components call those, never `fetch` directly. The rubric grades extracting calls into reusable hooks/services.
+```js
+// api/transactions.js
+export const submitTransaction = (payload) =>
+  apiFetch('/api/v1/transactions', { method: 'POST', body: JSON.stringify(payload) });
+```
+
+## Knowing who's signed in
+
+The SPA renders the same `AppLayout` whether you're signed in or not. To show "Sign in" vs "Sign out (alice)" in the header, call `/api/v1/users/me`:
+
+- Returns the user object → render the user menu.
+- Returns 401 → the `apiFetch` 401 handler bounces to login. So in practice you only see this after the user has signed out from another tab.
+
+For the very first render before any API call has happened, just render the user menu in a "loading" state and let the first `useMe()` call settle it.
+
+```js
+// hooks/useMe.js
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../api/apiClient.js';
+
+export function useMe() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch('/api/v1/users/me')
+      .then(setUser)
+      .catch(() => setUser(null))   // 401 has already bounced to login; this catches network errors
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { user, loading };
+}
+```
+
+## Header: sign in / sign out
+
+```jsx
+function HeaderUserMenu() {
+  const { user, loading } = useMe();
+
+  if (loading) return <span>…</span>;
+  if (!user) {
+    return <a href="/oauth2/authorization/mock-auth">Sign in</a>;
+  }
+  return (
+    <form method="POST" action="/logout">
+      <input type="hidden" name="_csrf" value={readCsrfToken()} />
+      <span>{user.email}</span>
+      <button type="submit">Sign out</button>
+    </form>
+  );
+}
+```
+
+That's it. No `signinRedirect()`, no `signoutRedirect()`, no auth context. The browser navigates to the BFF; Spring does the rest.
 
 ## UX expectations (Meets criteria)
 
-For each fetch, the UI must show:
+For each fetch:
 
-- **Loading state** — spinner or skeleton while the request is in flight.
-- **Empty state** — "No accounts yet" / "No transactions yet" when the response is `[]`.
-- **Error state** — a banner with a useful message if `apiFetch` throws. Don't show the raw error JSON.
-- **Disabled-during-submit** — `<button disabled={submitting}>Submit</button>` on `TransactionForm`. Otherwise users double-click and create duplicate transactions.
+- **Loading** — spinner or skeleton.
+- **Empty** — "No accounts yet" / "No transactions yet" when the response is `[]`.
+- **Error** — banner with a useful message. Don't show the raw error JSON.
+- **Disabled-during-submit** — `<button disabled={submitting}>Submit</button>` on `TransactionForm`.
 
 For `TransactionForm`:
 
-- Client-side validation **must match** the backend Bean Validation rules in [API Contract](./03-api-contract.md). Don't allow `amount` to be negative or zero in the UI.
-- After a successful submit, navigate back to the source account detail page (use `useNavigate`).
-- Show the server's error envelope's `detail` field if the backend rejects the submission (e.g., insufficient funds).
+- Client-side validation matches the backend's Bean Validation rules.
+- After a successful submit, navigate back to the source account detail page (`useNavigate`).
+- Show the server's error envelope's `detail` field if the backend rejects (e.g., `INSUFFICIENT_FUNDS`).
 
 ## Admin views
 
-Build them, but they don't need to be polished. A plain `<table>` of users with `userId`, `email`, `displayName`, `role` is enough. The point is to demonstrate that:
+Build an `AdminUsersPage` component as a plain table. Two-layer gating:
 
-- The route is gated on role at the **client side** (better UX — no flash of admin content).
-- The API is gated on role at the **server side** (security — a non-admin who hits the URL directly gets 403).
+- **Server side (security):** `/api/v1/admin/users` requires `ROLE_ADMIN` on the Resource Server, plus the BFF proxies it (so the BFF *also* requires the user to be authenticated). A non-admin gets 403; the SPA renders an error.
+- **Client side (UX):** the `/admin/users` link in the nav is hidden if `useMe().user.role !== 'ADMIN'`. This is purely UX — if a non-admin types the URL directly, the API still returns 403.
 
-If you only do client-side gating, it counts as failing the security rubric — UI gates are not security.
-
-## Logout
-
-Provide a "Sign out" button in the header. It should:
-
-- Clear `sessionStorage`.
-- Call `auth.signoutRedirect()` (oidc-client-ts) to redirect to Google's logout, or just navigate to `/login`. Either is acceptable for the capstone.
-
-## What about token refresh?
-
-Google access tokens last 1 hour. The capstone's expected behaviour on expiry is **redirect to login**, not silent refresh. The "Exceeds" rubric line about refresh-token rotation is achievable if you have time, but not required for "Meets."
+Do not rely on client-side gating for security. The rubric grades both layers.
 
 ## Common React pitfalls (graded)
 
-The Module 9 slides explicitly listed these — and the rubric watches for them:
+The Module 9 slides explicitly listed these:
 
-- **Don't use `<a href="...">` for in-app links.** Use `<Link to="...">` from react-router. Plain anchors trigger a full page reload and lose state.
+- **Don't use `<a href="...">` for in-app links.** Use `<Link to="...">` from react-router. Plain anchors trigger a full page reload. (Exception: the **sign-in link** must be `<a>` because it leaves the SPA entirely.)
 - **Don't `navigate(...)` during render.** Only inside event handlers or `useEffect`.
-- **Don't drop the `*` route.** Without it, bad URLs render a blank page silently.
-- **Don't put the access token in `localStorage`** or in URL query strings.
-- **Treat route params as strings** (they always are). Convert with `Number(id)` if you need an int.
+- **Don't drop the `*` route.** Bad URLs render blank otherwise.
+- **Treat route params as strings.** Convert with `Number(id)` only after checking presence.
 
 Next: [Kafka Events](./06-kafka-events.md).
