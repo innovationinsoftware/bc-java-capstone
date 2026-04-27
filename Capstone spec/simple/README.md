@@ -18,16 +18,17 @@ A customer signs in with their Google account, sees their bank accounts, and sub
 | Tests | JUnit 5, Spring Boot Test, WireMock |
 | AI | GitHub Copilot (use it; review what it generates) |
 
-A starter scaffold will be provided. Don't replace it — extend it.
+A starter scaffold lives in [`scaffolding/`](./scaffolding/). It compiles and boots out of the box. Don't replace it — extend it. Look for `// TODO` markers for the work you need to do.
 
-## The four documents
+## The five things to read
 
 1. **[requirements.md](./requirements.md)** — what to build (features, API endpoints, security rules)
 2. **[plan.md](./plan.md)** — what to do each day
 3. **[done.md](./done.md)** — the checklist before you demo
 4. **[rubric.md](./rubric.md)** — how you're graded
+5. **[scaffolding/README.md](./scaffolding/README.md)** — what's already built and how to run it
 
-Read them in order. Total reading time: 15 minutes.
+Read 1–4 in order (15 min). Then open the scaffold README and start running it.
 
 ## What you submit
 
