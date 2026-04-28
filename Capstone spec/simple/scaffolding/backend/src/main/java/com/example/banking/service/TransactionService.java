@@ -75,105 +75,31 @@ public class TransactionService {
      */
     @Transactional
     public List<TransactionDto> submit(NewTransactionRequest req, String callerUserId) {
-
-        TransactionType type = parseType(req.type());
-        AccountEntity source = accountService.loadOwned(req.accountId(), callerUserId);
-
-        return switch (type) {
-            case DEPOSIT       -> List.of(applyDeposit(source, req));
-            case WITHDRAWAL    -> List.of(applyWithdrawal(source, req));
-            case TRANSFER_OUT  -> applyTransferOut(source, req, callerUserId);
-            case TRANSFER_IN   -> throw new BusinessRuleException(
-                    "TRANSFER_IN is created by the system; clients cannot post it directly");
-        };
+        // TODO: Implement transaction submission logic
+        // 1. Verify the caller owns the source account
+        // 2. Route the request based on the transaction type (DEPOSIT, WITHDRAWAL, TRANSFER_OUT)
+        // 3. For WITHDRAWAL/TRANSFER_OUT, verify sufficient funds
+        // 4. Update the account balance
+        // 5. Persist the transaction row(s) to the database
+        // 6. Return the persisted row(s) as DTOs
+        // Note: For internal transfers (between two owned accounts), you must persist TWO rows.
+        
+        throw new UnsupportedOperationException("TODO: Implement transaction submission logic");
     }
 
-    // ---- DEPOSIT --------------------------------------------------------
-
-    private TransactionDto applyDeposit(AccountEntity source, NewTransactionRequest req) {
-        if (req.counterparty() != null) {
-            throw new BusinessRuleException("counterparty must be null for DEPOSIT");
-        }
-        source.setBalance(source.getBalance().add(req.amount()));
-        accounts.save(source);
-        TransactionEntity row = persistRow(source.getAccountId(), TransactionType.DEPOSIT,
-                req.amount(), TransactionStatus.COMPLETED, null, null, req.description());
-        return TransactionDto.from(row);
-    }
-
-    // ---- WITHDRAWAL -----------------------------------------------------
-
-    private TransactionDto applyWithdrawal(AccountEntity source, NewTransactionRequest req) {
-        if (req.counterparty() != null) {
-            throw new BusinessRuleException("counterparty must be null for WITHDRAWAL");
-        }
-        requireFunds(source, req.amount());
-        source.setBalance(source.getBalance().subtract(req.amount()));
-        accounts.save(source);
-        TransactionEntity row = persistRow(source.getAccountId(), TransactionType.WITHDRAWAL,
-                req.amount(), TransactionStatus.COMPLETED, null, null, req.description());
-        return TransactionDto.from(row);
-    }
-
-    // ---- TRANSFER_OUT ---------------------------------------------------
-
-    private List<TransactionDto> applyTransferOut(AccountEntity source,
-                                                  NewTransactionRequest req,
-                                                  String callerUserId) {
-        if (req.counterparty() == null || req.counterparty().isBlank()) {
-            throw new BusinessRuleException("counterparty is required for TRANSFER_OUT");
-        }
-        requireFunds(source, req.amount());
-
-        // TODO (Day 2): implement BOTH transfer paths.
-        //
-        //   1. Internal transfer (counterparty is one of the caller's own
-        //      account IDs):
-        //        - debit source, credit destination
-        //        - both rows share a transferGroupId
-        //        - both COMPLETED
-        //        - returns 2 rows
-        //
-        //   2. External transfer (counterparty is not the caller's own
-        //      account):
-        //        - call paymentService.submitExternalTransfer(...)
-        //        - on success: debit source, insert ONE TRANSFER_OUT row
-        //          status=COMPLETED, returns 1 row
-        //        - on PaymentProcessorException: do NOT debit, insert ONE
-        //          TRANSFER_OUT row status=FAILED, returns 1 row, then
-        //          rethrow so the controller returns 502
-        //
-        // Hint: detecting "is the counterparty one of MY accounts" is a
-        // single accountRepository.findByOwnerId(callerUserId) call.
-
-        throw new UnsupportedOperationException("TRANSFER_OUT not yet implemented — see TODO");
-    }
-
-    // ---- helpers --------------------------------------------------------
+    // TODO: Add private helper methods for DEPOSIT, WITHDRAWAL, and TRANSFER_OUT
 
     private void requireFunds(AccountEntity source, BigDecimal amount) {
-        if (source.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientFundsException(source.getAccountId(),
-                    source.getBalance(), amount);
-        }
+        // TODO: Implement funds check. Throw InsufficientFundsException if balance < amount.
+        throw new UnsupportedOperationException("TODO: Implement funds check");
     }
 
     private TransactionEntity persistRow(String accountId, TransactionType type,
                                          BigDecimal amount, TransactionStatus status,
                                          String counterparty, String transferGroupId,
                                          String description) {
-        TransactionEntity row = new TransactionEntity(
-                "txn_" + UUID.randomUUID(),
-                accountId,
-                type,
-                amount,
-                status,
-                counterparty,
-                transferGroupId,
-                description,
-                Instant.now()
-        );
-        return transactions.save(row);
+        // TODO: Construct and save a new TransactionEntity
+        throw new UnsupportedOperationException("TODO: Implement row persistence");
     }
 
     private TransactionType parseType(String raw) {

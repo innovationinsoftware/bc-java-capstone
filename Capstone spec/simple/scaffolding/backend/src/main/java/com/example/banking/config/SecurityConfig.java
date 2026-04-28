@@ -11,19 +11,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Spring Security as an OAuth2 Resource Server validating Google JWTs.
- *
- * Token validation chain (Spring does this automatically once issuer-uri
- * and jwks-uri are set in application.yml):
- *   1. signature verified against Google's JWKS
- *   2. issuer (iss) matches https://accounts.google.com
- *   3. expiry (exp) is in the future
- *
- * The audience (aud) check is added below via JwtAudienceValidator
- * (see GoogleAudienceValidator). Without it, ANY Google ID token would
- * pass — including tokens minted for other relying parties.
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -37,13 +24,15 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/health").permitAll()
-                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                .anyRequest().authenticated()
+                // TODO: Allow OPTIONS requests to "/**"
+                // TODO: Allow GET requests to "/health"
+                // TODO: Require ROLE_ADMIN for "/api/v1/admin/**"
+                // TODO: Require authentication for all other requests
+                .anyRequest().permitAll() // REMOVE this line and replace with the rules above
             )
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt ->
-                jwt.jwtAuthenticationConverter(jwtConverter)
+                // TODO: Set the JWT Authentication Converter to use the provided jwtConverter
+                jwt.jwtAuthenticationConverter(jwtConverter) // Replace as needed
             ));
 
         return http.build();

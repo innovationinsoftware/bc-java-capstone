@@ -75,14 +75,14 @@ If anything is missing, install it before continuing — the scaffold does not b
 | JPA entities + repositories | Done |
 | DTOs, validation annotations | Done — `NewTransactionRequest` has Bean Validation |
 | Global exception handler (RFC 7807-ish) | Done — `GlobalExceptionHandler` |
-| Spring Security as Resource Server | Done — issuer + audience + signature + expiry validated |
+| Spring Security as Resource Server | **TODO** — issuer + audience + signature + expiry validated |
 | JWT → local-user + role conversion | Done — `JwtAuthConverter` (creates user on first login) |
 | CORS for the SPA origin | Done |
 | Kafka producer config + publisher | Done — keyed by accountId, `acks=all`, idempotent |
-| `GET /health`, `/api/v1/users/me`, `/api/v1/accounts/**` | Done — wired end-to-end |
-| `POST /api/v1/transactions` for DEPOSIT and WITHDRAWAL | Done — incl. insufficient-funds path |
+| GET /health, /api/v1/users/me, /api/v1/accounts/**  | **TODO**  — wired end-to-end |
+| POST /api/v1/transactions for DEPOSIT and WITHDRAWAL | **TODO** — incl. insufficient-funds path |
 | React routing, layout, `RequireAuth`, `RequireRole` | Done |
-| Google sign-in via `react-oidc-context` (PKCE) | Done — drop in `VITE_GOOGLE_CLIENT_ID` |
+| Google sign-in via eact-oidc-context (PKCE) | **TODO** — drop in `VITE_GOOGLE_CLIENT_ID` |
 | Pages for accounts, account detail, new transaction, admin users | Done — minimal, extend the UX |
 | WireMock stub for the Payment Processor | Done — runs as a standalone JVM process |
 | Smoke test for `/health` | Done |

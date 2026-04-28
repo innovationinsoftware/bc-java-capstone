@@ -1,19 +1,23 @@
-import { useAuth } from "react-oidc-context";
-import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from 'react-oidc-context';
+import { Navigate } from 'react-router-dom';
 
 /**
- * Guards routes that require a logged-in user. If not authenticated,
- * redirects to /login and remembers where the user was trying to go.
+ * A wrapper component that checks if a user is authenticated.
+ * If not, it redirects them to the /login page.
+ * If they are loading, it displays a loading message.
  */
-export default function RequireAuth({ children }) {
-  const auth = useAuth();
-  const location = useLocation();
+export const RequireAuth = ({ children }) => {
+    // TODO: use the useAuth() hook to get auth state
+    const auth = { isAuthenticated: false, isLoading: false }; // REPLACE THIS
 
-  if (auth.isLoading) return <p>Loading…</p>;
+    if (auth.isLoading) {
+        return <div>Logging in...</div>;
+    }
 
-  if (!auth.isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
-  }
+    if (!auth.isAuthenticated) {
+        // TODO: Redirect to /login using React Router's <Navigate> component.
+        return null; // REPLACE THIS
+    }
 
-  return children;
-}
+    return children;
+};

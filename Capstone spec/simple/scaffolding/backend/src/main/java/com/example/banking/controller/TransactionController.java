@@ -35,32 +35,29 @@ public class TransactionController {
 
     /**
      * Submit a transaction. Returns 201 with the created row(s).
-     *
-     * Two important rules from the spec:
-     *   1. The Kafka publish happens AFTER the @Transactional in the
-     *      service has committed — that's why we publish here in the
-     *      controller, not inside the service.
-     *   2. A TRANSFER_OUT between the caller's own accounts produces TWO
-     *      rows; everything else returns one. The Location header points
-     *      at the FIRST row.
      */
     @PostMapping
     public ResponseEntity<List<TransactionDto>> create(@Valid @RequestBody NewTransactionRequest req,
                                                        Authentication auth) {
         String callerUserId = auth.getName();
-        List<TransactionDto> created = transactions.submit(req, callerUserId);
+        
+        // TODO: Call transactions.submit(req, callerUserId) to submit the transaction(s)
+        List<TransactionDto> created = null; // REPLACE THIS
+        
+        // TODO: Iterate over the created transactions.
+        //       For each row, use transactions.toEvent(...) to generate an event,
+        //       then use transactions.publishEvent(...) to publish it to Kafka.
 
-        // Publish one event per row. Currency is USD for the capstone.
-        for (TransactionDto row : created) {
-            TransactionEvent event = transactions.toEvent(row, callerUserId, "USD");
-            transactions.publishEvent(event);
-        }
-
+        // This code builds the 201 Created Location header. Uncomment once 'created' is populated.
+        /*
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequestUri()
                 .path("/{id}")
                 .buildAndExpand(created.get(0).transactionId())
                 .toUri();
         return ResponseEntity.created(location).body(created);
+        */
+        
+        return null; // REPLACE THIS once the above is un-commented
     }
 }

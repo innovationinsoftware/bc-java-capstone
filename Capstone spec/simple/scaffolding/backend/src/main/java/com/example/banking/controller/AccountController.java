@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -27,19 +28,22 @@ public class AccountController {
     /** Caller's own accounts only. */
     @GetMapping
     public List<AccountDto> listMine(Authentication auth) {
-        return accountService.listForOwner(auth.getName());
+        // TODO: Call accountService to get the list of accounts for the authenticated user
+        return Collections.emptyList(); // REPLACE THIS
     }
 
     /** Single account, owned by caller. 404 if not exists OR not owned. */
     @GetMapping("/{accountId}")
     public AccountDto getOne(@PathVariable String accountId, Authentication auth) {
-        return accountService.findOwnedAccount(accountId, auth.getName());
+        // TODO: Call accountService to find a specific owned account
+        return null; // REPLACE THIS
     }
 
     /** Transactions for an owned account, newest first. */
     @GetMapping("/{accountId}/transactions")
     public List<TransactionDto> getTransactions(@PathVariable String accountId,
                                                 Authentication auth) {
-        return transactionService.listForOwnedAccount(accountId, auth.getName());
+        // TODO: Call transactionService to get a list of transactions for the owned account
+        return Collections.emptyList(); // REPLACE THIS
     }
 }

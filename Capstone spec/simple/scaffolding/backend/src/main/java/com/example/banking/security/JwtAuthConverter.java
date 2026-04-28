@@ -36,14 +36,13 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
     @Override
     @Transactional
     public AbstractAuthenticationToken convert(Jwt jwt) {
-        String subject = jwt.getSubject();
-        String email = jwt.getClaimAsString("email");
-        String name = jwt.getClaimAsString("name");
-
-        BankUserEntity user = users.findBySubject(subject)
-                .orElseGet(() -> users.save(BankUserEntity.newCustomer(subject, email, name)));
-
-        var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
-        return new JwtAuthenticationToken(jwt, authorities, user.getUserId());
+        // TODO: Implement JWT conversion
+        // 1. Extract subject, email, and name claims from the JWT
+        // 2. Look up the user in the BankUserRepository
+        // 3. If the user doesn't exist, create a new user (with CUSTOMER role)
+        // 4. Return a JwtAuthenticationToken with the correct authorities ("ROLE_" + role)
+        // Note: The resulting authentication "name" must be the local userId, not the Google subject.
+        
+        throw new UnsupportedOperationException("TODO: Implement JWT conversion logic");
     }
 }
