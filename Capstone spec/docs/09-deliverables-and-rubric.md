@@ -7,11 +7,17 @@ A single GitHub repo URL containing **everything**:
 ```
 <team-name>-banking/
 ├── README.md                          # clone-and-run, < 15 min
-├── backend/                           # Spring Boot project, mvn test green
-├── frontend/                          # React app, npm test green
+├── backend/
+│   ├── pom.xml                        # parent
+│   ├── mock-auth/                     # Spring Authorization Server, port 9000
+│   ├── bff/                           # OAuth2 client + WebClient proxy, port 8080
+│   └── resource-server/               # banking API, port 8081 (mvn test green)
+├── frontend/                          # React + Vite, no OIDC library, npm test green
+├── scripts/                           # setup-oracle.sql, start-*.sh helpers
+├── wiremock-stubs/                    # Payment Processor stubs
 ├── docs/
 │   ├── architecture.md                # 1-page diagram + design decisions
-│   ├── security-decisions.md          # how you handled token lifecycle, CORS, RBAC
+│   ├── security-decisions.md          # BFF rationale, CSRF, session storage
 │   ├── sast-findings.md               # Checkmarx triage table
 │   ├── dast-payloads.md               # baseline + custom payload writeups
 │   ├── team-plan.md                   # who owns what
@@ -49,22 +55,22 @@ The rubric has 7 sections weighted as below. Total = 100%.
 
 | Rubric criterion | What it means | Where |
 |---|---|---|
-| React components and API integration | Components call API via `api/` modules, not raw `fetch` in components; loading/error/empty handled. | `routes/`, `components/`, `api/apiClient.ts` |
-| Account listing and transaction submission views | `AccountsPage`, `AccountDetailPage`, `NewTransactionPage` work; client-side validation matches backend. | `routes/AccountsPage.tsx`, etc. |
-| Authenticated UI interactions | Bearer token attached to every protected request; 401 redirects to login; protected routes guarded with `RequireAuth`/`RequireRole`. | `auth/`, `apiClient`, `RequireAuth` |
+| React components and API integration | Components call API via `api/` modules, not raw `fetch`; loading/error/empty handled. **Same-origin via Vite proxy.** | `routes/`, `components/`, `api/apiClient.js` |
+| Account listing and transaction submission views | `AccountsPage`, `AccountDetailPage`, `NewTransactionPage` work; client-side validation matches backend. | `routes/AccountsPage.jsx`, etc. |
+| Authenticated UI interactions | Calls go same-origin with cookie; CSRF token attached on mutations; 401 redirects to BFF login URL; **no tokens in JavaScript**. | `api/apiClient.js`, `useMe` hook |
 
-**To exceed:** Disabled buttons during submit; accessible form labels; token expiry handling smoother than full re-login; no token in any log statement.
+**To exceed:** Accessible form labels; disabled buttons during submit; CSRF cookie/header wired correctly without help; the SPA gracefully shows "Session expired — please sign in again" before redirecting.
 
 ### 3. Security Integration (20%)
 
-| Rubric criterion | What it means | Where |
+| Rubric criterion | What it means in the BFF model | Where |
 |---|---|---|
-| OAuth2 resource server | Spring service validates Google JWTs; rejects bad ones cleanly. | `config/SecurityConfig.java`, `application.yml` |
-| Google OAuth identity provider and login flow | Real end-to-end: `/login` → Google consent → `/callback` → calling protected API. | `auth/AuthProvider.tsx`, `routes/CallbackPage.tsx`, `JwtAuthConverter` |
-| RBAC (customer, admin) | `CUSTOMER` and `ADMIN` roles, with admin endpoints denied to customers at filter and method-security layers. | `SecurityConfig`, `@PreAuthorize` on admin controllers |
-| Endpoint hardening and token validation | Issuer + audience + signature + expiry all validated; payment processor API key in env, never logged. | `application.yml`, `PaymentService.java`, `docs/security-decisions.md` |
+| OAuth2 resource server | Resource Server validates JWTs from the Authorization Server; rejects bad ones cleanly. | `resource-server/config/SecurityConfig.java`, `JwtDecoderConfig.java` |
+| OAuth login flow via BFF | End-to-end: SPA `<a>` link → BFF `/oauth2/authorization/...` → Auth Server → BFF callback → session cookie → SPA. **No tokens in browser.** | `bff/config/SecurityConfig.java`, `bff/application.yml` |
+| RBAC (customer, admin) | `CUSTOMER` and `ADMIN` roles enforced on the Resource Server at URL filter **and** method security. The BFF's session also includes the role for client-side UX gating. | `resource-server/SecurityConfig`, `@PreAuthorize` annotations |
+| Endpoint hardening | Issuer + audience + signature + expiry validated by RS; BFF's `client_secret` and Payment Processor API key in env vars only; CSRF protection enabled on the BFF. | `application.yml`, `PaymentService.java`, `docs/security-decisions.md` |
 
-**To exceed:** Scope-based gates layered on top of role-based; token expiry handled gracefully; specific resistance to replay/substitution attacks demonstrated in tests.
+**To exceed:** Switching the BFF from mock-auth to a real IdP (Google, Okta) with documentation; session storage moved to Redis or JDBC; production-grade CSRF / SameSite considerations explicitly discussed; demonstration that XSS in the SPA cannot exfiltrate tokens.
 
 ### 4. Testing & Security Validation (15%)
 
@@ -106,13 +112,13 @@ A team where one person did 90% of commits **fails** this slice — even if ever
 
 A working agenda template, in `docs/demo-script.md`. Allocate roughly:
 
-1. **(2 min) Architecture intro.** One person explains the diagram. Who calls who, where the JWT goes, where Kafka fits.
-2. **(3 min) Login flow.** Sign in with a real Google account. Show the JWT in browser DevTools (sessionStorage). Hit a protected endpoint with the token, then without the token.
-3. **(5 min) Customer flow.** List accounts, drill into one, submit a deposit, submit a transfer (internal), watch the balances update. Show the Kafka console consumer printing the events in real time.
-4. **(2 min) Admin flow.** Log in as admin (use a separate Google account if you can; otherwise grant admin in DB and re-login). Show `/admin/users`. Log back in as customer and demonstrate the 403.
+1. **(2 min) Architecture intro.** One person draws the four-tier diagram on a whiteboard or screen-shares the doc. Browser ↔ BFF ↔ Resource Server, with the Auth Server off to the side. Where the cookie lives, where the bearer JWT lives, where Kafka fits.
+2. **(3 min) Login flow.** Sign in as `alice`. Open DevTools → Application → Cookies. **Show that the only cookies are `JSESSIONID` (HttpOnly) and `XSRF-TOKEN`. Show that sessionStorage and localStorage are empty.** This is the BFF's headline win — make it visible.
+3. **(5 min) Customer flow.** List accounts, drill into one, submit a deposit, submit a transfer (internal), watch balances update. Tail the Kafka console consumer to show events arriving keyed by accountId.
+4. **(2 min) Admin flow.** Sign out, sign back in as `admin`. Show `/admin/users` works. Sign back in as `alice` and demonstrate the 403.
 5. **(2 min) SAST highlight.** Open `docs/sast-findings.md`. Walk through one finding's fix and the rescan.
 6. **(2 min) DAST highlight.** Walk through one custom payload — what was sent, what came back, what it told you about the API.
-7. **(2 min) Q&A.** Be ready for "Why X?" questions on design decisions.
+7. **(2 min) Q&A.** Be ready for "Why X?" questions on design decisions — especially "why BFF over pure-SPA".
 
 Demos that try to cover *all* the features in 20 minutes go shallow. Pick your strongest five minutes and rehearse them.
 

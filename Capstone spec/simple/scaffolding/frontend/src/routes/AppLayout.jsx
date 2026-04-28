@@ -1,12 +1,17 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "react-oidc-context";
+import { useMe } from "../hooks/useMe.js";
+import { readCsrfToken } from "../api/apiClient.js";
 
 /**
- * Shared chrome for authenticated pages: header with nav and sign-out.
- * The active page renders into <Outlet/>.
+ * Shared chrome for every page: header with nav + sign-in/sign-out.
+ *
+ * Sign in is a plain anchor — clicking it leaves the SPA and lets Spring
+ * Security drive the OAuth flow on the BFF. Sign out is a form POST so
+ * the CSRF token can be sent.
  */
 export default function AppLayout() {
-  const auth = useAuth();
+  const { user, loading } = useMe();
+  const isAdmin = user?.role === "ADMIN";
 
   return (
     <div className="app">
@@ -15,17 +20,21 @@ export default function AppLayout() {
         <nav className="app__nav">
           <NavLink to="/" end>Accounts</NavLink>
           <NavLink to="/transactions/new">New transaction</NavLink>
-          <NavLink to="/admin/users">Admin</NavLink>
+          {isAdmin && <NavLink to="/admin/users">Admin</NavLink>}
         </nav>
-        <button
-          className="app__signout"
-          onClick={() => auth.signoutRedirect().catch(() => {
-            sessionStorage.clear();
-            window.location.assign("/login");
-          })}
-        >
-          Sign out
-        </button>
+        <div className="app__user">
+          {loading ? (
+            <span>…</span>
+          ) : user ? (
+            <form method="POST" action="/logout" className="app__logout">
+              <input type="hidden" name="_csrf" value={readCsrfToken() ?? ""} />
+              <span>{user.email}</span>
+              <button type="submit">Sign out</button>
+            </form>
+          ) : (
+            <a href="/oauth2/authorization/mock-auth">Sign in</a>
+          )}
+        </div>
       </header>
       <main className="app__main">
         <Outlet />

@@ -1,6 +1,6 @@
 # 03 — REST API Contract
 
-This is the contract the React SPA expects, the integration tests assert against, and the rubric grades you on. Every endpoint requires a valid Google-issued JWT unless explicitly marked `permitAll`.
+This is the contract the React SPA expects (calling the BFF), the BFF in turn calls the Resource Server with the same paths, and the rubric grades you on it. Both the BFF and the Resource Server expose `/api/v1/**` endpoints with the same shape — the BFF is a thin proxy that adds auth.
 
 Base path: `/api/v1`. Content type for both request and response: `application/json`.
 
@@ -9,19 +9,21 @@ Base path: `/api/v1`. Content type for both request and response: `application/j
 - **All money values are decimal strings or numbers with up to 4 decimal places** (e.g., `"125.5000"` or `125.5`). Choose one and be consistent. Never serialize as a binary float.
 - **All timestamps are ISO-8601 with timezone** (e.g., `"2026-04-26T13:45:30.123Z"`).
 - **All IDs are opaque strings**. Never expose database row counts or sequential IDs.
-- **`Authorization: Bearer <jwt>`** is required on every endpoint except `GET /health`.
-- **CORS** is configured to allow the SPA origin only.
+- **From the SPA → BFF**: same-origin, session cookie sent automatically; mutations carry `X-XSRF-TOKEN` from the `XSRF-TOKEN` cookie.
+- **From the BFF → Resource Server**: `Authorization: Bearer <jwt>` attached automatically by the WebClient OAuth2 filter; nothing in proxy code touches tokens.
+- **Resource Server authentication**: every endpoint except `GET /health` requires a valid JWT issued by the Authorization Server.
+- **CORS** does not apply — same-origin deployment via Vite proxy in dev, and BFF-served static files in prod.
 - **Error envelope** uses RFC 7807 Problem Details (Module 2 covered this). See "Error responses" below.
 
 ## Endpoints
 
 ### `GET /health`
-**Auth:** none.
-**200** — `{"status":"UP"}`. Used by the SPA to verify the API is reachable before showing the login button.
+**Auth:** none. Exposed by the Resource Server only.
+**200** — `{"status":"UP"}`. Useful for instructor smoke checks; the SPA doesn't call this.
 
 ### `GET /api/v1/users/me`
-**Auth:** any authenticated user (`SCOPE_openid`).
-Returns the calling user's profile. **Idempotent side effect:** if no `BANK_USERS` row exists for the JWT's `sub` claim, one is created with role `CUSTOMER`. This is how new Google accounts onboard.
+**Auth:** any authenticated user.
+Returns the calling user's profile. **Idempotent side effect:** if no `BANK_USERS` row exists for the JWT's `sub` claim, the Resource Server creates one with role `CUSTOMER`. This is how new users onboard the first time they sign in.
 
 **200** —
 ```json
@@ -146,6 +148,14 @@ Returns a single transaction.
 **Auth:** ADMIN. Returns any user's account list. Same response shape as `GET /api/v1/accounts`.
 
 These two admin endpoints are the **only** places a non-owner can see another user's data. Everything else is scoped to the caller.
+
+## CSRF on the BFF
+
+The BFF authenticates with cookies, so CSRF protection is enabled. Spring's `CookieCsrfTokenRepository.withHttpOnlyFalse()` issues an `XSRF-TOKEN` cookie on the first response after login. The SPA reads it and echoes the value as the `X-XSRF-TOKEN` header on every mutation (POST/PUT/DELETE).
+
+Idempotent reads (`GET`) do not need the CSRF header.
+
+The `/logout` endpoint is a POST and **does** require the CSRF token. The SPA's logout button is a form post with a hidden `_csrf` field, not a `fetch`.
 
 ## Error responses (RFC 7807)
 

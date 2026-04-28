@@ -25,16 +25,16 @@ Read the documents in order the first time. After that, treat them as reference.
 
 ## At-a-glance scope
 
-You are building a **Secure Digital Banking Platform** consisting of:
+You are building a **Secure Digital Banking Platform** using the **Backend-for-Frontend (BFF)** pattern. Four runtime pieces:
 
-- A **Spring Boot 3.x / Java 17** backend exposing a REST API for accounts and transactions, persisting to **Oracle 21c XE** via Spring Data JPA, and publishing transaction events to a pre-deployed **Kafka** topic.
-- A **React SPA** (Vite + React Router) that lets a customer sign in with **Google**, view their accounts, and submit transactions.
-- An OAuth2/OIDC integration where Google is the Identity Provider, the React SPA is a public client using **Authorization Code + PKCE**, and the Spring Boot service is a **Resource Server** that validates Google-issued JWTs.
-- **RBAC** with two roles — `CUSTOMER` and `ADMIN` — layered on top of OAuth2 scopes.
-- An **external payment API** call made securely from the backend to simulate a downstream payments processor.
-- **Tests** (unit + integration), a **Checkmarx SAST scan**, and a **DAST scan** with custom banking payloads.
+- A **React SPA** (Vite + React Router) that customers use in the browser. Holds **no tokens** — only an HttpOnly session cookie.
+- A **Spring Boot BFF** (port 8080) — OAuth2 client. Drives Authorization Code + PKCE login, holds tokens server-side per session, and proxies `/api/v1/**` calls to the Resource Server using **`WebClient`** with the `ServletOAuth2AuthorizedClientExchangeFilterFunction` filter.
+- A **Spring Boot Resource Server** (port 8081) — the banking API. Persists to **Oracle 21c XE**, publishes events to a pre-deployed **Kafka** topic, calls a downstream Payment Processor (mocked with WireMock).
+- A **mock Authorization Server** (port 9000) — Spring Authorization Server. Stand-in for whatever IdP a real bank would integrate with.
 
-Everything you need was covered in Modules 0–9 of the bootcamp. Where the capstone goes one step beyond the labs, this spec calls it out.
+Plus: **RBAC** with `CUSTOMER` and `ADMIN` roles, **tests** (unit + integration), a **Checkmarx SAST scan**, and a **DAST scan** with custom banking payloads.
+
+Everything you need was covered in Modules 0–9 of the bootcamp. The BFF pattern itself is described in Module 9's "React and Security" slides.
 
 ## Tech stack (locked)
 
@@ -43,18 +43,19 @@ These are not negotiable — pick anything else and you'll fall outside the rubr
 | Layer | Technology | Version | Source in course |
 |---|---|---|---|
 | Language (backend) | Java | 17 | Module 1 |
-| Build (backend) | Maven | 3.x | Module 1 |
+| Build (backend) | Maven (multi-module) | 3.x | Module 1 |
 | Backend framework | Spring Boot | 3.x (latest stable 3.4.x) | Modules 2–4, 7 |
+| BFF auth | spring-boot-starter-oauth2-client | bundled | Module 9 (BFF section) |
+| BFF outbound calls | Spring `WebClient` + `ServletOAuth2AuthorizedClientExchangeFilterFunction` | bundled | Module 4, Module 9 |
+| Resource Server auth | spring-boot-starter-oauth2-resource-server | bundled | Module 3 |
+| Authorization Server | spring-boot-starter-oauth2-authorization-server | bundled | Module 3 |
 | Persistence | Spring Data JPA + Hibernate | bundled | Module 7 |
 | Database | Oracle Database | 21c XE | Modules 5–7 |
-| Security | Spring Security OAuth2 Resource Server | bundled | Module 3 |
-| External calls | RestTemplate or WebClient | bundled | Module 4 |
-| Messaging | spring-kafka | bundled | Module 8 |
-| Frontend tooling | Vite + npm | latest | Module 9 |
+| Messaging | spring-kafka | bundled | Module 8 (Labs 4.1–4.3) |
+| Frontend tooling | Vite + npm (with dev proxy) | latest | Module 9 |
 | Frontend framework | React | 18.x | Module 9 |
 | Routing | react-router-dom | 6.x | Module 9 |
-| HTTP client | fetch or axios | — | Module 9 |
-| OAuth in SPA | oidc-client-ts or react-oidc-context (or equivalent) | — | Module 9 |
+| HTTP client | `fetch` (no OIDC library — BFF handles OAuth) | — | Module 9 |
 | Testing | JUnit 5, Spring Boot Test, WireMock | bundled | Modules 0, 4 |
 | AI assistant | GitHub Copilot | — | Module 0 |
 

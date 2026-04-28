@@ -14,10 +14,10 @@ Tick each box only when you have **observed** it working, not when you believe t
 
 ## Backend
 
-- [ ] `mvn -f backend/pom.xml test` runs to completion and is green.
-- [ ] `mvn -f backend/pom.xml spring-boot:run` boots without errors against Oracle.
-- [ ] All endpoints in [API Contract](./03-api-contract.md) return the documented shape and status codes.
-- [ ] `application.yml` has no hard-coded passwords or client IDs.
+- [ ] `mvn -f backend/pom.xml test` (multi-module build) runs to completion and is green for all three modules.
+- [ ] All four services start cleanly: mock-auth (9000), resource-server (8081), bff (8080), frontend (5173).
+- [ ] All endpoints in [API Contract](./03-api-contract.md) return the documented shape and status codes when called via the BFF.
+- [ ] No `application.yml` in any module has a hard-coded `client_secret`, password, or API key.
 - [ ] `BANK_USERS`, `ACCOUNTS`, `TRANSACTIONS` tables exist with constraints from [Domain Model](./02-domain-model.md).
 - [ ] `BigDecimal` is used everywhere money is stored or computed. No `double`.
 
@@ -25,38 +25,39 @@ Tick each box only when you have **observed** it working, not when you believe t
 
 - [ ] `npm install` from a clean checkout works.
 - [ ] `npm run dev` boots and serves on http://localhost:5173.
+- [ ] Vite proxy forwards `/api/**`, `/login/**`, `/logout`, `/oauth2/**` to the BFF on `:8080`.
 - [ ] `npm run build` produces a static bundle without errors.
-- [ ] `npm test` (if you added tests) is green.
-- [ ] `.env.example` documents `VITE_GOOGLE_CLIENT_ID` and `VITE_API_BASE_URL`.
+- [ ] **`grep -r "oidc-client-ts\|react-oidc-context" frontend/src` returns nothing.** No OAuth library in the SPA.
 
 ## Security
 
-- [ ] `curl http://localhost:8081/api/v1/accounts` (no token) → 401.
-- [ ] `curl` with an invalid Bearer → 401.
-- [ ] `curl` with a token that has the wrong audience → 401.
+- [ ] Sign in works end-to-end (browser → BFF → mock-auth → BFF → SPA).
+- [ ] DevTools shows **only** `JSESSIONID` (HttpOnly) and `XSRF-TOKEN` cookies. sessionStorage and localStorage are empty.
+- [ ] `curl http://localhost:8081/api/v1/accounts` direct to Resource Server (no Bearer) → 401.
+- [ ] `curl http://localhost:8080/api/v1/accounts` direct to BFF (no cookie) → 401 (or 302 to login, depending on config).
 - [ ] Customer hitting `/api/v1/admin/users` → 403.
-- [ ] Customer hitting another customer's `/api/v1/accounts/{id}` → 404.
-- [ ] CORS allows `http://localhost:5173` only — not `*`.
-- [ ] No `console.log(token)` or `log.info("token=...")` anywhere.
+- [ ] Customer hitting another customer's `/api/v1/accounts/{id}` → 404 (not 403).
+- [ ] Sign out → `/api/v1/users/me` returns 401.
+- [ ] `grep -r "client_secret\|password=\|Bearer eyJ" backend/*/src frontend/src` returns no real values.
+- [ ] No `console.log(token)`, `log.info("token=...")`, or any other token logging.
 - [ ] Payment processor API key is read from env var, not hard-coded.
-- [ ] `grep -r "client_secret\|password=\|Bearer eyJ" backend/src frontend/src` returns no real values.
+- [ ] CSRF: a `POST` with no `X-XSRF-TOKEN` header → 403. With the right header → 200.
 
 ## Functionality (live)
 
 Walk through these in the SPA, end to end. Tick when you've personally seen it work.
 
-- [ ] Sign in with a real Google account.
-- [ ] On first login, a `BANK_USERS` row appears (verify in Oracle).
-- [ ] `/api/v1/users/me` returns your user with role `CUSTOMER`.
-- [ ] AccountsPage shows your accounts (after running `V3__demo_accounts.sql` against your `userId`).
+- [ ] Sign in as `alice`. A `BANK_USERS` row appears (verify in Oracle).
+- [ ] `/api/v1/users/me` (via the SPA) returns the user with role `CUSTOMER`.
+- [ ] AccountsPage shows your accounts.
 - [ ] AccountDetailPage shows transactions ordered desc.
 - [ ] Submit a deposit — balance updates, transaction appears, Kafka consumer prints the event.
 - [ ] Submit a withdrawal that exceeds the balance — get 422 with `INSUFFICIENT_FUNDS`, balance unchanged.
 - [ ] Submit an internal transfer — both rows appear with the same `transferGroupId`, both balances correct.
 - [ ] Submit an external transfer to a fake counterparty — WireMock 200 path → completes; WireMock 503 path → fails, no debit.
-- [ ] Sign out — sessionStorage cleared, app redirects to `/login`.
-- [ ] Log in as admin — `/admin/users` works.
-- [ ] Log in as customer — `/admin/users` shows nothing or redirects, and direct API call returns 403.
+- [ ] Sign out → cookie cleared, the next API call from the SPA returns 401, browser redirects to login.
+- [ ] Sign in as `admin` — `/admin/users` works.
+- [ ] Sign in as `alice` — direct API call to `/api/v1/admin/users` returns 403, and the nav link is hidden.
 
 ## Testing & security validation
 

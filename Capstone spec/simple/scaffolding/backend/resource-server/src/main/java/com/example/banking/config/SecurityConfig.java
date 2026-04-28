@@ -4,7 +4,6 @@ import com.example.banking.security.JwtAuthConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -20,8 +19,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthConverter jwtConverter) throws Exception {
         http
-            .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.disable())  // stateless bearer-token API; CSRF is the BFF's concern
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // TODO: Allow OPTIONS requests to "/**"

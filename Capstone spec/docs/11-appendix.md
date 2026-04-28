@@ -70,22 +70,61 @@ JwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.issuer
 public List<UserDto> listAllUsers() { ... }
 ```
 
-## Reference card — react-router
+## Reference card — BFF Spring config
 
-```tsx
-// Layout route + sibling login route (Module 9 slides 17–18)
+```yaml
+# bff/src/main/resources/application.yml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          mock-auth:
+            client-id: spa-client
+            client-secret: ${OAUTH_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile, email
+        provider:
+          mock-auth:
+            issuer-uri: ${AUTH_SERVER_URL:http://localhost:9000}
+```
+
+```java
+// bff: WebClient with the OAuth2 filter
+@Bean
+public WebClient resourceServerWebClient(OAuth2AuthorizedClientManager mgr,
+                                         @Value("${bank.resource-server.base-url}") String baseUrl) {
+    var oauth = new ServletOAuth2AuthorizedClientExchangeFilterFunction(mgr);
+    oauth.setDefaultClientRegistrationId("mock-auth");
+    return WebClient.builder().baseUrl(baseUrl).filter(oauth).build();
+}
+
+// bff: a proxy controller — Spring attaches the bearer token automatically
+@GetMapping("/api/v1/accounts")
+public Mono<List<AccountDto>> listAccounts() {
+    return webClient.get().uri("/api/v1/accounts")
+        .retrieve()
+        .bodyToFlux(AccountDto.class)
+        .collectList();
+}
+```
+
+## Reference card — react-router (BFF model — no auth wrappers)
+
+```jsx
 <Routes>
-  <Route element={<RequireAuth><AppLayout/></RequireAuth>}>
+  <Route element={<AppLayout/>}>
     <Route path="/" element={<AccountsPage/>} />
     <Route path="/accounts/:accountId" element={<AccountDetailPage/>} />
     <Route path="/transactions/new" element={<NewTransactionPage/>} />
-    <Route path="/admin/users" element={<RequireRole role="ADMIN"><AdminUsersPage/></RequireRole>} />
+    <Route path="/admin/users" element={<AdminUsersPage/>} />
   </Route>
-  <Route path="/login" element={<LoginPage/>} />
-  <Route path="/callback" element={<CallbackPage/>} />
   <Route path="*" element={<NotFoundPage/>} />
 </Routes>
 ```
+
+There is no `<RequireAuth>` and no `<CallbackPage>`. Spring Security gates the API; the SPA's `apiClient` redirects to `/oauth2/authorization/mock-auth` on a 401.
 
 ## Reference card — Spring Kafka
 
@@ -134,10 +173,14 @@ If you want to re-read a topic, the slides and labs are at:
 
 ## External references (use sparingly)
 
+- Spring Security OAuth2 Client (BFF) — https://docs.spring.io/spring-security/reference/servlet/oauth2/client/index.html
 - Spring Security Resource Server — https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html
+- Spring Authorization Server — https://docs.spring.io/spring-authorization-server/reference/getting-started.html
+- Spring `WebClient` with OAuth2 — https://docs.spring.io/spring-security/reference/servlet/oauth2/client/authorized-clients.html#oauth2Client-webclient-servlet
 - Spring Kafka — https://docs.spring.io/spring-kafka/reference/index.html
 - React Router — https://reactrouter.com/en/main
 - OWASP ZAP — https://www.zaproxy.org/docs/
+- BFF for SPAs (OAuth WG draft) — https://datatracker.ietf.org/doc/draft-ietf-oauth-browser-based-apps/
 - Google Identity (OAuth 2.0 for Web) — https://developers.google.com/identity/openid-connect/openid-connect
 
 That's the whole spec. Good luck.
