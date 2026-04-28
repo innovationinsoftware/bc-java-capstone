@@ -7,7 +7,7 @@
 -- After this, the backend's Flyway migrations will create the actual tables
 -- (BANK_USERS, ACCOUNTS, TRANSACTIONS) inside this schema on first boot.
 
-ALTER SESSION SET CONTAINER = XEPDB1;
+ALTER SESSION SET CONTAINER = XE;
 
 -- Drop and recreate so this script is rerunnable. Comment out the DROP if
 -- you want to preserve existing data.
