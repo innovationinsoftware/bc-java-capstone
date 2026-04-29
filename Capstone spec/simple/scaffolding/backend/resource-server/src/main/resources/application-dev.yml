@@ -1,0 +1,4 @@
+# Local-dev overrides only. Do not put real secrets here either.
+spring:
+  jpa:
+    show-sql: true
