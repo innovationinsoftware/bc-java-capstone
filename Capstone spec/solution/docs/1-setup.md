@@ -21,13 +21,13 @@
 
 ## Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| Java (JDK) | 17 | Microsoft Build of OpenJDK (`ms-17.0.18`) tested — IntelliJ downloads this automatically |
-| IntelliJ IDEA | 2024+ | Used as the backend IDE and build tool |
-| Node.js | 18+ | For the Vite frontend dev server |
-| npm | 9+ | Comes with Node.js |
-| **Docker Desktop** | Any recent | **Option A only** — must be running before starting containers |
+| Tool               | Version    | Notes                                                                                    |
+| ------------------ | ---------- | ---------------------------------------------------------------------------------------- |
+| Java (JDK)         | 17         | Microsoft Build of OpenJDK (`ms-17.0.18`) tested — IntelliJ downloads this automatically |
+| IntelliJ IDEA      | 2024+      | Used as the backend IDE and build tool                                                   |
+| Node.js            | 18+        | For the Vite frontend dev server                                                         |
+| npm                | 9+         | Comes with Node.js                                                                       |
+| **Docker Desktop** | Any recent | **Option A only** — must be running before starting containers                           |
 
 ---
 
@@ -63,11 +63,13 @@ The application supports **Google OIDC** as well as a local **mock authorization
 
 The capstone needs three backing services:
 
-| Service | Docker port | Standalone port | Purpose |
-|---|---|---|---|
-| Oracle XE 21c | 1521 | 1522 | Primary database |
-| Apache Kafka | 9092 | 9092 | Event streaming |
-| WireMock | 8089 | 8089 | Payment processor stub |
+| Service       | Docker port | Standalone port | Purpose                |
+| ------------- | ----------- | --------------- | ---------------------- |
+| Oracle XE 21c | 1521        | 1521 \*         | Primary database       |
+| Apache Kafka  | 9092        | 9092            | Event streaming        |
+| WireMock      | 8089        | 8089            | Payment processor stub |
+
+\* On this machine standalone Oracle XE uses port **1521** (listener confirmed via `lsnrctl status`). The Windows installer default is 1522 — verify with `lsnrctl status` if unsure.
 
 ---
 
@@ -84,12 +86,12 @@ docker compose up -d
 
 #### Service details
 
-| Service | Image |
-|---|---|
-| `oracle` | `gvenzl/oracle-xe:21-slim` |
+| Service     | Image                             |
+| ----------- | --------------------------------- |
+| `oracle`    | `gvenzl/oracle-xe:21-slim`        |
 | `zookeeper` | `confluentinc/cp-zookeeper:7.5.0` |
-| `kafka` | `confluentinc/cp-kafka:7.5.0` |
-| `wiremock` | `wiremock/wiremock:3.3.1` |
+| `kafka`     | `confluentinc/cp-kafka:7.5.0`     |
+| `wiremock`  | `wiremock/wiremock:3.3.1`         |
 
 #### Wait for Oracle
 
@@ -103,10 +105,10 @@ Wait until you see: `DATABASE IS READY TO USE`
 
 #### Oracle credentials (Docker)
 
-| Variable | Value |
-|---|---|
-| `APP_USER` | `bankapp` |
-| `APP_USER_PASSWORD` | `bankapp` |
+| Variable            | Value                |
+| ------------------- | -------------------- |
+| `APP_USER`          | `bankapp`            |
+| `APP_USER_PASSWORD` | `bankapp`            |
 | SYS/SYSTEM password | `my_secure_password` |
 
 #### Stop services
@@ -141,14 +143,14 @@ You need to install and start three services manually: **Oracle XE**, **Kafka**,
 
 **Create the `bankapp` user**
 
-Open SQL*Plus (installed with Oracle) and run the setup script:
+Open SQL\*Plus (installed with Oracle) and run the setup script:
 
 ```powershell
-C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus sys/<sys-password>@//localhost:1522/XEPDB1 as sysdba @scripts\setup-oracle.sql
+sqlplus sys/password@//localhost:1521/XEPDB1 as sysdba @scripts\setup-oracle.sql
 ```
 
 > [!NOTE]
-> Standalone Oracle XE uses port **1522** (not 1521). Port 1521 is for Docker.
+> On this machine, standalone Oracle XE uses port **1521** (same as Docker). Port 1522 is the installer default but may differ per machine — check with `lsnrctl status`.
 > sqlplus is at `C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus.exe` (e.g. `C:\app\johndoe\product\21c\dbhomeXE\bin\sqlplus.exe`)
 
 > [!TIP]
@@ -158,7 +160,7 @@ C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus sys/<sys-password>@//localhos
 **Verify connection**
 
 ```powershell
-sqlplus bankapp/bankapp_password@//localhost:1522/XEPDB1
+sqlplus bankapp/bankapp_password@//localhost:1521/XEPDB1
 ```
 
 ---
@@ -170,7 +172,7 @@ Kafka 4.x runs in **KRaft mode** — no Zookeeper required.
 **Install**
 
 Download the latest Kafka binary from https://kafka.apache.org/downloads and extract to `C:\kafka`.  
-*(Or use the existing installation at `C:\kafka` if already present.)*
+_(Or use the existing installation at `C:\kafka` if already present.)_
 
 **Set JAVA_HOME** (required before running any Kafka commands):
 
@@ -179,11 +181,12 @@ $env:JAVA_HOME = "C:\Users\<username>\.jdks\ms-17.0.18"   # e.g. C:\Users\johndo
 $env:PATH = $env:JAVA_HOME + "\bin;" + $env:PATH
 ```
 
+> [!TIP]
+> On this machine JAVA_HOME is already set system-wide to `C:\Program Files\OpenJDK\jdk-21` — no manual export needed.
+> To find IntelliJ-managed JDKs: `Get-ChildItem "$env:USERPROFILE\.jdks"`
+
 > [!IMPORTANT]
 > Use `+` concatenation for PATH — **not** `"$env:JAVA_HOME\bin;..."` (the double-quoted string form breaks on Windows due to backslash parsing).
-
-> [!TIP]
-> Find your JDK path with: `Get-ChildItem "$env:USERPROFILE\.jdks"`
 
 **Configure data directory**
 
@@ -285,10 +288,10 @@ You should see `payment-success` and `payment-failure-large` mappings loaded.
 
 **Stub behaviour**
 
-| Request | Response |
-|---|---|
+| Request                                 | Response                                       |
+| --------------------------------------- | ---------------------------------------------- |
 | `POST /payments` with `amount <= 10000` | `200 ACCEPTED` with random processor reference |
-| `POST /payments` with `amount > 10000` | `503 REJECTED` — exceeds processor limit |
+| `POST /payments` with `amount > 10000`  | `503 REJECTED` — exceeds processor limit       |
 
 ---
 
@@ -296,11 +299,11 @@ You should see `payment-success` and `payment-failure-large` mappings loaded.
 
 The backend is a **multi-module Maven project** with three Spring Boot applications. Start them in this order:
 
-| Module | Main class | Port |
-|---|---|---|
-| `mock-auth` | `com.example.mockauth.MockAuthApplication` | 9000 |
-| `resource-server` | `com.example.banking.BankingApplication` | 8082 |
-| `bff` | `com.example.bff.BffApplication` | 8081 |
+| Module            | Main class                                 | Port |
+| ----------------- | ------------------------------------------ | ---- |
+| `mock-auth`       | `com.example.mockauth.MockAuthApplication` | 9000 |
+| `resource-server` | `com.example.banking.BankingApplication`   | 8082 |
+| `bff`             | `com.example.bff.BffApplication`           | 8081 |
 
 ### Required Environment Variables
 
@@ -308,23 +311,23 @@ Set these in the IntelliJ run/debug configuration under **Environment variables*
 
 **Resource Server (port 8082):**
 
-| Variable | Docker value | Standalone value | Notes |
-|---|---|---|---|
-| `ORACLE_PASSWORD` | `bankapp_password` | `bankapp_password` | Must match the DB password |
-| `ORACLE_URL` | *(omit — default used)* | `jdbc:oracle:thin:@//localhost:1522/XEPDB1` | **Standalone only** — port is 1522 |
-| `ORACLE_USER` | *(omit — default `bankapp`)* | `bankapp` | Only needed if you used a different username |
-| `GOOGLE_CLIENT_ID` | `<your-google-client-id>` | `<your-google-client-id>` | Required only if using Google login |
+| Variable           | Docker value                 | Standalone value                            | Notes                                              |
+| ------------------ | ---------------------------- | ------------------------------------------- | -------------------------------------------------- |
+| `ORACLE_PASSWORD`  | `bankapp_password`           | `bankapp_password`                          | Must match the DB password                         |
+| `ORACLE_URL`       | _(omit — default used)_      | `jdbc:oracle:thin:@//localhost:1521/XEPDB1` | **Standalone only** — port is 1521 on this machine |
+| `ORACLE_USER`      | _(omit — default `bankapp`)_ | `bankapp`                                   | Only needed if you used a different username       |
+| `GOOGLE_CLIENT_ID` | `<your-google-client-id>`    | `<your-google-client-id>`                   | Required only if using Google login                |
 
 **BFF (port 8081):**
 
-| Variable | Value | Notes |
-|---|---|---|
-| `GOOGLE_CLIENT_ID` | `<your-google-client-id>` | Required only if using Google login |
+| Variable               | Value                         | Notes                               |
+| ---------------------- | ----------------------------- | ----------------------------------- |
+| `GOOGLE_CLIENT_ID`     | `<your-google-client-id>`     | Required only if using Google login |
 | `GOOGLE_CLIENT_SECRET` | `<your-google-client-secret>` | Required only if using Google login |
 
 > [!NOTE]
 > For **Docker**, `ORACLE_URL` defaults to `jdbc:oracle:thin:@//localhost:1521/XEPDB1` — no need to set it.
-> For **standalone Oracle XE**, you must set `ORACLE_URL=jdbc:oracle:thin:@//localhost:1522/XEPDB1` in the IntelliJ run config.
+> For **standalone Oracle XE**, you must set `ORACLE_URL=jdbc:oracle:thin:@//localhost:1521/XEPDB1` in the IntelliJ run config.
 
 ### Database Migrations
 
@@ -333,28 +336,49 @@ Flyway runs automatically on resource-server startup. Migrations are at:
 ```
 solution/backend/resource-server/src/main/resources/db/migration/
   V1__initial_schema.sql      — Creates BANK_USERS, ACCOUNTS, TRANSACTIONS tables
-  V2__seed_admin.sql          — Seeds a placeholder ADMIN user row
-  V3__seed_demo_accounts.sql  — Seeds demo accounts for the placeholder user
+  V2__seed_admin.sql          — Seeds admin user row (subject='admin', ROLE=ADMIN)
+  V3__seed_demo_accounts.sql  — Seeds two accounts for the admin user
+  V4__seed_alice.sql          — Seeds alice user row + two accounts (subject='alice', ROLE=CUSTOMER)
 ```
+
+> [!NOTE]
+> V4 uses a PL/SQL block with `DUP_VAL_ON_INDEX` guards, so it is safe even if alice logged in before the migration ran — it resolves alice's actual `USER_ID` from the existing `BANK_USERS` row.
 
 ---
 
 ## Seeding Demo Accounts
 
-After first login, your user row is auto-created but has no accounts. Seed them manually.
+### Demo users (pre-seeded by Flyway — no manual steps needed)
+
+The following users and their accounts are seeded automatically on first resource-server startup:
+
+| Username | Password | Role     | Accounts seeded                                              |
+| -------- | -------- | -------- | ------------------------------------------------------------ |
+| `admin`  | `admin`  | ADMIN    | `acc_demo_checking` ($5,000) · `acc_demo_savings` ($12,500)  |
+| `alice`  | `alice`  | CUSTOMER | `acc_alice_checking` ($3,200) · `acc_alice_savings` ($8,750) |
+
+Just log in at http://localhost:5173 — accounts appear immediately.
+
+---
+
+### Your own Google / custom login user
+
+After your **first login** with a Google account (or any identity not pre-seeded), your `BANK_USERS` row is created automatically but has no accounts. Add them manually:
 
 **1. Log in to the app at least once** at http://localhost:5173 (creates your `BANK_USERS` row).
 
 **2. Connect to Oracle:**
 
-*Docker:*
+_Docker:_
+
 ```powershell
 docker exec -it capstone-oracle sqlplus bankapp/bankapp_password@XEPDB1
 ```
 
-*Local (standalone):*
+_Local (standalone):_
+
 ```powershell
-C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus bankapp/bankapp_password@//localhost:1522/XEPDB1
+sqlplus bankapp/bankapp_password@//localhost:1521/XEPDB1
 ```
 
 **3. Find your USER_ID:**
@@ -380,10 +404,12 @@ EXIT;
 
 > [!TIP]
 > To grant yourself ADMIN access:
+>
 > ```sql
 > UPDATE BANK_USERS SET ROLE = 'ADMIN' WHERE EMAIL = 'your@email.com';
 > COMMIT;
 > ```
+>
 > Then sign out and back in.
 
 ---
@@ -413,29 +439,52 @@ The app will be available at **http://localhost:5173**.
 - [ ] **5.** Start `resource-server` (port 8082) in IntelliJ — confirm Flyway migrations applied
 - [ ] **6.** Start `bff` (port 8081) in IntelliJ
 - [ ] **7.** `npm run dev` in `solution/frontend/`
-- [ ] **8.** Open http://localhost:5173 and sign in
-- [ ] **9.** Seed demo accounts via SQL*Plus (first time only)
+- [ ] **8.** Open http://localhost:5173 and sign in — `alice` and `admin` accounts are pre-seeded
+- [ ] **9.** _(Optional)_ Seed accounts for your own Google login via SQL\*Plus — see [Seeding Demo Accounts](#seeding-demo-accounts)
 
 ### Option B — Local Installation
 
 - [ ] **1.** Ensure Oracle XE service is running (`OracleServiceXE` in Windows Services)
-- [ ] **2.** Confirm `ORACLE_URL=jdbc:oracle:thin:@//localhost:1522/XEPDB1` is set in IntelliJ resource-server run config
+- [ ] **2.** Confirm `ORACLE_URL=jdbc:oracle:thin:@//localhost:1521/XEPDB1` is set in IntelliJ resource-server run config
 - [ ] **3.** Start Kafka: run `scripts\start-kafka.bat` in its own terminal (leave it running)
 - [ ] **4.** Start WireMock: run `scripts\start-wiremock.bat` in its own terminal (leave it running)
 - [ ] **5.** Start `mock-auth` (port 9000) in IntelliJ
 - [ ] **6.** Start `resource-server` (port 8082) in IntelliJ — confirm Flyway migrations applied
 - [ ] **7.** Start `bff` (port 8081) in IntelliJ
 - [ ] **8.** `npm run dev` in `solution/frontend/`
-- [ ] **9.** Open http://localhost:5173 and sign in
-- [ ] **10.** Seed demo accounts via SQL*Plus (first time only)
+- [ ] **9.** Open http://localhost:5173 and sign in — `alice` and `admin` accounts are pre-seeded
+- [ ] **10.** _(Optional)_ Seed accounts for your own Google login via SQL\*Plus — see [Seeding Demo Accounts](#seeding-demo-accounts)
 
 ---
 
 ## Known Issues & Fixes Applied
 
+### Kafka `kafka-server-start.bat` / `kafka-storage.bat` — Zero-Byte / Wrong Classpath
+
+**Symptom A:** `kafka-storage.bat` or `kafka-server-start.bat` produce no output and exit immediately (files are 0 bytes).
+
+**Symptom B:** Kafka JVM exits with `Classpath is empty. Please build the project first e.g. by running 'gradlew jarAll'`.
+
+**Root Cause:** The Windows bat scripts at `C:\kafka\bin\windows\` were either zero-byte (corrupted during extraction) or matched a **Gradle source-build** layout, looking for JARs under `core/build/`, `clients/build/`, etc. — which don't exist in the binary distribution. Only `libs/*.jar` is present.
+
+**Fix applied:** `kafka-server-start.bat` and `kafka-storage.bat` were replaced with scripts that build `CLASSPATH` directly from `C:\kafka\libs\*.jar` and invoke `java` with the correct main class (`kafka.Kafka` / `kafka.tools.StorageTool`) using `%JAVA_HOME%\bin\java`. `kafka-run-class.bat` was also patched to add `libs/*.jar` first so that `kafka-topics.bat` and other tool scripts work.
+
+> [!NOTE]
+> `kafka-topics.bat --list` may still fail with `The input line is too long` due to Windows cmd.exe 8191-character command-line limit when 100+ JARs are in the classpath. This does **not** affect the broker itself — verify Kafka health by checking port 9092 is open instead:
+>
+> ```powershell
+> $tcp = New-Object System.Net.Sockets.TcpClient
+> $tcp.Connect("localhost", 9092)
+> $tcp.Connected   # should be True
+> $tcp.Close()
+> ```
+
+---
+
 ### Flyway Checksum Mismatch on V2 Migration
 
 **Symptom:** Resource server fails to start with:
+
 ```
 Validate failed: Migrations have failed validation
 Migration checksum mismatch for migration version 2
@@ -457,11 +506,11 @@ Migration checksum mismatch for migration version 2
 
 **Fixes applied:**
 
-| Layer | Fix |
-|---|---|
-| JDBC | `oracle.jdbc.timezoneAsRegion=false` in HikariCP `connection-properties` |
-| Hibernate | `hibernate.timezone.default_storage: NORMALIZE` |
-| Entities | `java.time.Instant` → `java.time.LocalDateTime` in all entities/DTOs |
+| Layer     | Fix                                                                      |
+| --------- | ------------------------------------------------------------------------ |
+| JDBC      | `oracle.jdbc.timezoneAsRegion=false` in HikariCP `connection-properties` |
+| Hibernate | `hibernate.timezone.default_storage: NORMALIZE`                          |
+| Entities  | `java.time.Instant` → `java.time.LocalDateTime` in all entities/DTOs     |
 
 ---
 
@@ -483,6 +532,21 @@ Migration checksum mismatch for migration version 2
 
 ---
 
+### ORA-00001: Unique Constraint on First Login (Race Condition)
+
+**Symptom:** On first page load, one of the parallel API requests (`/api/v1/accounts` or `/api/v1/users/me`) fails with `500` and the server logs show:
+
+```
+ORA-00001: unique constraint (BANKAPP.UQ_BANK_USERS_SUBJECT) violated
+[insert into bank_users ...]
+```
+
+**Root Cause:** The frontend fires multiple API calls simultaneously on login. Each call passes through `JwtAuthConverter`, which runs a find-then-insert for new users. When two requests both see `Optional.empty()` for the same `subject`, both attempt `INSERT` — the second one violates the unique constraint on `SUBJECT`.
+
+**Fix applied:** `JwtAuthConverter.convert()` now catches `DataIntegrityViolationException` and retries the `findBySubject` lookup, so the losing thread gets the row created by the winner instead of propagating a 500.
+
+---
+
 ### Infinite Page Refresh on 401
 
 **Symptom:** Unauthenticated page reloads infinitely.
@@ -490,6 +554,5 @@ Migration checksum mismatch for migration version 2
 **Root Cause:** `apiClient.js` redirected to `/` on 401 → page loaded → API called → 401 → redirect to `/` → loop.
 
 **Fix:** On 401, `apiFetch` throws `ApiError(401)`. The `useMe` hook catches it and sets `user = null`, which causes `AppLayout` to render the sign-in page without any navigation.
-
 
 ---

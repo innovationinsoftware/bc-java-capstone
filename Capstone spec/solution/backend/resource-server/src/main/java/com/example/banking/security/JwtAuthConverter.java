@@ -4,6 +4,7 @@ import com.example.banking.model.BankUserEntity;
 import com.example.banking.model.UserRole;
 import com.example.banking.repository.BankUserRepository;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -47,9 +48,20 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
         UserRole role = "ADMIN".equalsIgnoreCase(roleClaim) ? UserRole.ADMIN : UserRole.CUSTOMER;
 
         // Upsert: create on first login, find on subsequent logins.
-        BankUserEntity localUser = users.findBySubject(subject)
-                .orElseGet(() -> users.save(
-                        BankUserEntity.newUser(subject, email, name, role)));
+        // Guard against a race condition where two concurrent requests both see
+        // Optional.empty() and both attempt the INSERT — the second one hits the
+        // UQ_BANK_USERS_SUBJECT constraint.  We catch that and fall back to a
+        // plain lookup so the request succeeds instead of returning 500.
+        BankUserEntity localUser;
+        try {
+            localUser = users.findBySubject(subject)
+                    .orElseGet(() -> users.save(
+                            BankUserEntity.newUser(subject, email, name, role)));
+        } catch (DataIntegrityViolationException ex) {
+            // Lost the insert race — the row was created by a concurrent request.
+            localUser = users.findBySubject(subject)
+                    .orElseThrow(() -> ex);
+        }
 
         var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + localUser.getRole().name()));
 
