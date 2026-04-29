@@ -1,0 +1,99 @@
+# Capstone — Student Workbook
+
+Welcome to the Banking Capstone. The scaffolding under `Capstone spec/scaffolding/`
+is a working skeleton: builds compile, services start, the database schema migrates,
+the React shell renders, and the **security plumbing** (BFF SecurityConfig, WebClient
+OIDC filter, Resource Server filter chain, OAuth login flow) is wired up for you.
+
+Your job in two days is to fill in the deliberately-empty methods that turn the
+skeleton into a working banking app, exercise the BFF pattern end-to-end, and
+prove the result is safe.
+
+## How to use these docs
+
+Each chapter maps to one phase of the build. Work them in order — later
+chapters assume the code you wrote in earlier ones is in place.
+
+| # | Chapter | When |
+|---|---|---|
+| 01 | [Environment Check](./01-environment-check.md) | Day 1, first hour |
+| 02 | [Codebase Tour](./02-codebase-tour.md) | Day 1, second hour |
+| 03 | [Deposit & Withdrawal](./03-deposit-and-withdrawal.md) | Day 1 morning |
+| 04 | [Resource Server Security](./04-resource-server-security.md) | Day 1 afternoon |
+| 05 | [Transfers](./05-transfers.md) | Day 2 morning |
+| 06 | [Frontend](./06-frontend.md) | Day 2 afternoon |
+| 07 | [Security Validation](./07-security-validation.md) | Day 2 late afternoon |
+| 08 | [Deliverables & Demo](./08-deliverables-and-demo.md) | Day 2 final hour |
+
+## Day-by-day plan
+
+**Day 1 (~8 hours):**
+
+| Block | Activity |
+|---|---|
+| 1 hr | Environment check (chapter 01) |
+| 1 hr | Codebase tour (chapter 02) |
+| 3 hrs | Deposit, Withdrawal, three unit tests (chapter 03) |
+| 3 hrs | JwtAuthConverter + two integration tests (chapter 04) |
+
+**Day 2 (~8 hours):**
+
+| Block | Activity |
+|---|---|
+| 4 hrs | TRANSFER_OUT (internal + external) + tests (chapter 05) |
+| 3 hrs | Frontend `apiFetch`, `useMe`, two page components (chapter 06) |
+| 30 min | Hardening sweep + one Checkmarx scan (chapter 07) |
+| 30 min | Final polish, demo dry-run (chapter 08) |
+
+Day 2 is tight. If you fall behind on Day 1, push the WITHDRAWAL unit tests
+into Day 2 morning — but do not skip the JwtAuthConverter. The whole RBAC
+story depends on it.
+
+## What's pre-built (don't reinvent)
+
+The following are **already implemented** in the scaffolding. Read them
+during the codebase tour; do not rewrite them.
+
+- Resource Server `SecurityConfig` filter chain
+- BFF `SecurityConfig` (session + CSRF + OAuth2 login)
+- BFF `WebClientConfig` (the OIDC bearer-token filter that makes BFF work)
+- All proxy controllers, DTOs, entities, repositories, exceptions, Kafka
+  publisher, Flyway migrations, mock-auth users + client
+- React routing, layout, `<AccountCard>`, `<TransactionList>`, `<TransactionForm>`,
+  `<ErrorBanner>`, `NewTransactionPage`, `AccountCard.test.jsx`
+
+You will still **read** every one of these as part of chapter 02 — the demo
+expects you to explain why they look the way they do.
+
+## What "done" looks like
+
+You are graded against the rubric in [`../09-deliverables-and-rubric.md`](../09-deliverables-and-rubric.md)
+and the checklist in [`../10-definition-of-done.md`](../10-definition-of-done.md).
+Read both on Day 1 morning. Print the DoD checklist; tick boxes only when you
+have **observed** the behaviour, not when you believe the code is right.
+
+## Ground rules
+
+- **Do not delete the `// TODO` blocks until the matching code passes.**
+- **Do not move or rename files** the spec calls out — tests import them by name.
+- **Use the spec docs as the contract.** If your code disagrees with
+  `03-api-contract.md` or `04-security.md`, the spec wins.
+- **Use Copilot, but read what it produces.** "Copilot wrote it" is the wrong
+  answer in the demo Q&A.
+- **Never commit secrets.** `.env` is gitignored — keep it that way.
+
+## Working agreement
+
+You're graded as a team but you should still split the surface so you don't
+trip over each other. Agree on this before writing code (write it down in
+`docs/team-plan.md`):
+
+| Lead role | Owns |
+|---|---|
+| Resource Server | TransactionService, JwtAuthConverter, RS tests, Kafka verification |
+| Frontend | apiFetch, useMe, page components, smoke tests |
+| Quality / Security | Hardening sweep, SAST, demo script |
+
+Leads, not silos. Everyone touches everything; the lead owns the final review.
+
+Good luck. Start with [01-environment-check.md](./01-environment-check.md).
