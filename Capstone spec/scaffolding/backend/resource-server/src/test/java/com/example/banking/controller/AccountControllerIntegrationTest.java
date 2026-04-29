@@ -169,20 +169,6 @@ class AccountControllerIntegrationTest {
         // TODO: implement this test
         throw new UnsupportedOperationException("test not yet implemented");
     }
-                       .with(jwt().jwt(j -> j
-                           .subject("google-sub-123")
-                           .claim("email", "alice@example.com"))
-                           .authorities(new org.springframework.security.core.authority
-                                   .SimpleGrantedAuthority("ROLE_CUSTOMER")))
-                       .contentType(MediaType.APPLICATION_JSON)
-                       .content(body))
-               .andExpect(status().isCreated())
-               .andExpect(jsonPath("$.length()").value(2))
-               .andExpect(jsonPath("$[0].type").value("TRANSFER_OUT"))
-               .andExpect(jsonPath("$[1].type").value("TRANSFER_IN"))
-               .andExpect(jsonPath("$[0].transferGroupId").value("grp_abc"))
-               .andExpect(jsonPath("$[1].transferGroupId").value("grp_abc"));
-    }
 
     // ------------------------------------------------------------------ external transfer 503 → 502
 

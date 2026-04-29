@@ -823,14 +823,9 @@ GET http://localhost:8089/__admin/requests
 
 ## Phase 5 — Frontend: Connect the UI
 
-The React frontend (`frontend/src/`) is mostly complete. The key files to review:
-
-| File | Purpose |
-|---|---|
-| `src/api/client.js` | Axios instance with CSRF header injection |
-| `src/routes/NewTransactionPage.jsx` | Transaction submission form |
-| `src/routes/AccountDetailPage.jsx` | Balance and transaction history |
-| `src/routes/DashboardPage.jsx` | Account list |
+The React frontend (`frontend/src/`) has its structure in place — routing, components,
+and CSS are all provided. Your job is to implement the data-fetching layer and the
+page components that use it.
 
 **Start the frontend**:
 ```bash
@@ -839,15 +834,285 @@ npm install
 npm run dev
 ```
 
-Navigate to `http://localhost:5173` and log in as `alice` / `alice`.
+Navigate to `http://localhost:5173`. The app will not work yet — `apiFetch` throws
+immediately. Work through the steps below in order.
 
-### Running Frontend Tests
+---
+
+### Step 5.1 — Implement the API Client
+
+**File**: `frontend/src/api/apiClient.js`
+
+This file is the entire HTTP surface of the frontend. Every API call goes through
+`apiFetch`. It handles CSRF tokens, Content-Type, and 401 errors consistently so
+page components never have to think about them.
+
+#### Part A — `readCsrfToken()`
+
+Spring Security writes an `XSRF-TOKEN` cookie that JavaScript can read (it is **not**
+`HttpOnly`). The browser sends cookies automatically on same-origin fetches, but
+you must **also** send the value as an `X-XSRF-TOKEN` request header on mutations
+(POST, PUT, DELETE, PATCH). This is the Spring double-submit CSRF pattern.
+
+```js
+function readCsrfToken() {
+  return document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("XSRF-TOKEN="))
+    ?.split("=")[1];
+}
+```
+
+#### Part B — `apiFetch(path, init)`
+
+```js
+export async function apiFetch(path, init = {}) {
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers = new Headers(init.headers ?? {});
+
+  // Default Content-Type for bodies
+  if (!headers.has("Content-Type") && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  // Attach CSRF token for mutating requests
+  if (method !== "GET" && method !== "HEAD") {
+    const csrf = readCsrfToken();
+    if (csrf) headers.set("X-XSRF-TOKEN", csrf);
+  }
+
+  const res = await fetch(path, {
+    ...init,
+    headers,
+    credentials: "same-origin",   // always send cookies
+  });
+
+  if (res.status === 401) {
+    throw new ApiError(401, { detail: "Unauthorized" });
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body);
+  }
+
+  return res.status === 204 ? undefined : res.json();
+}
+```
+
+#### Why throw on 401 instead of redirecting?
+
+The original naïve approach was: *on 401, `window.location = "/"`.* That caused an
+infinite loop — the page would load, call `/api/v1/users/me`, get 401, redirect to `/`,
+repeat forever. Throwing `ApiError(401)` lets the `useMe` hook catch it and set
+`user = null`, which makes `AppLayout` render the sign-in page — no redirect needed.
+
+#### Verify
+
+After implementing both parts, reload `http://localhost:5173`. The sign-in page should
+appear (because `useMe` is still a stub). Move on to Step 5.2.
+
+---
+
+### Step 5.2 — Implement `useMe`
+
+**File**: `frontend/src/hooks/useMe.js`
+
+```js
+useEffect(() => {
+  apiFetch("/api/v1/users/me")
+    .then(setUser)
+    .catch(() => setUser(null))
+    .finally(() => setLoading(false));
+}, []);
+```
+
+The `[]` dependency array means this runs once on mount. `AppLayout` calls `useMe`
+and shows a loading spinner until `loading` becomes `false`, then either shows the
+sign-in page (if `user === null`) or the authenticated layout.
+
+#### Verify
+
+Reload — you should see the sign-in page. Click **Sign in (Demo)**, log in as
+`alice` / `alice`. After login you should land on the accounts dashboard. The accounts
+list will be blank because `AccountsPage` is still a stub.
+
+---
+
+### Step 5.3 — Implement `AccountsPage`
+
+**File**: `frontend/src/routes/AccountsPage.jsx`
+
+```jsx
+useEffect(() => {
+  listAccounts()
+    .then(setAccounts)
+    .catch((e) => setError(e.message));
+}, []);
+
+if (error) return <p className="error">Could not load accounts: {error}</p>;
+if (!accounts) return <p>Loading accounts…</p>;
+if (accounts.length === 0) return <p>You have no accounts yet.</p>;
+
+return (
+  <section>
+    <h1>Your accounts</h1>
+    <ul className="accounts">
+      {accounts.map((a) => (
+        <AccountCard key={a.accountId} account={a} />
+      ))}
+    </ul>
+  </section>
+);
+```
+
+#### Three states the rubric grades
+
+| State | When | What to render |
+|---|---|---|
+| **Loading** | `accounts === null` (no error) | `<p>Loading accounts…</p>` |
+| **Error** | `error !== null` | `<p className="error">Could not load accounts: {error}</p>` |
+| **Empty** | `accounts.length === 0` | `<p>You have no accounts yet.</p>` |
+
+#### Verify
+
+After login, your account list should appear. Click an account — it will show a blank
+page until Step 5.4.
+
+---
+
+### Step 5.4 — Implement `AccountDetailPage`
+
+**File**: `frontend/src/routes/AccountDetailPage.jsx`
+
+```jsx
+useEffect(() => {
+  Promise.all([getAccount(accountId), getTransactions(accountId)])
+    .then(([a, t]) => { setAccount(a); setTransactions(t); })
+    .catch((e) => setError(e.message));
+}, [accountId]);
+
+if (error) return <p className="error">{error}</p>;
+if (!account || !transactions) return <p>Loading…</p>;
+
+return (
+  <section>
+    <h1>{account.accountType} — {account.currency} {account.balance}</h1>
+    <p>
+      <Link to="/transactions/new">New transaction</Link>
+    </p>
+    <h2>Transactions</h2>
+    <TransactionList transactions={transactions} />
+  </section>
+);
+```
+
+#### Why `Promise.all`?
+
+Without it, you would need two sequential `useEffect` / `await` pairs, doubling the
+round-trip time. `Promise.all` fires both requests simultaneously and only commits to
+state when both complete — or errors immediately if either fails.
+
+#### Verify
+
+Clicking an account should show its balance and transaction table.
+
+---
+
+### Step 5.5 — Implement `NewTransactionPage`
+
+**File**: `frontend/src/routes/NewTransactionPage.jsx`
+
+```jsx
+async function handleSubmit(formData) {
+  setError(null);
+  setSubmitting(true);
+  try {
+    await submitTransaction(formData);
+    navigate(`/accounts/${formData.accountId}`);
+  } catch (e) {
+    setError(e.message);
+  } finally {
+    setSubmitting(false);
+  }
+}
+
+if (!accounts.length) return <p>Loading accounts…</p>;
+
+return (
+  <TransactionForm
+    accounts={accounts}
+    onSubmit={handleSubmit}
+    submitting={submitting}
+    error={error}
+  />
+);
+```
+
+#### Design notes
+
+- The loading guard (`if (!accounts.length)`) prevents `TransactionForm` from
+  mounting with an empty `accounts` array. Without it, `accounts[0]?.accountId`
+  evaluates to `undefined`, and the first POST would send `accountId: ""`.
+- `submitTransaction` calls `apiFetch` which automatically adds the CSRF header.
+  You do not need to do anything special here.
+- On success, `navigate(...)` moves the user to the account detail page where
+  the new transaction row appears.
+
+#### Verify
+
+Submit a deposit — you should be redirected to the account detail page with the
+new transaction row visible.
+
+---
+
+### Step 5.6 — Implement Frontend Tests (`AccountCard.test.jsx`)
+
+**File**: `frontend/src/components/AccountCard.test.jsx`
+
+```jsx
+it("renders account type", () => {
+  render(
+    <MemoryRouter>
+      <AccountCard account={mockAccount} />
+    </MemoryRouter>
+  );
+  expect(screen.getByText("CHECKING")).toBeInTheDocument();
+});
+
+it("renders currency and balance", () => {
+  render(
+    <MemoryRouter>
+      <AccountCard account={mockAccount} />
+    </MemoryRouter>
+  );
+  expect(screen.getByText(/USD 1500.00/)).toBeInTheDocument();
+});
+
+it("renders a link to the account detail page", () => {
+  render(
+    <MemoryRouter>
+      <AccountCard account={mockAccount} />
+    </MemoryRouter>
+  );
+  expect(screen.getByRole("link")).toHaveAttribute("href", "/accounts/acc_1");
+});
+```
+
+#### Why `MemoryRouter`?
+
+`AccountCard` renders a `<Link>` from React Router. Without a router context, React
+Router throws. `MemoryRouter` provides that context in tests without touching the
+browser's actual URL.
+
+#### Run the tests
 
 ```bash
+cd frontend
 npm test
 ```
 
-The test files in `src/__tests__/` use Vitest and React Testing Library.
+All 3 tests should be green.
 
 ---
 

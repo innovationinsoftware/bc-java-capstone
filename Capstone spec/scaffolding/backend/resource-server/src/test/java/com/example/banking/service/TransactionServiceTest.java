@@ -150,7 +150,6 @@ class TransactionServiceTest {
         // TODO: implement this test
         throw new UnsupportedOperationException("test not yet implemented");
     }
-    }
 
     // ------------------------------------------------------------------ external transfer
 

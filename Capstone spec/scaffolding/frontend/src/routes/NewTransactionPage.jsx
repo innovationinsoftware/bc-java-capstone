@@ -19,26 +19,25 @@ export default function NewTransactionPage() {
   }, []);
 
   async function handleSubmit(formData) {
-    setError(null);
-    setSubmitting(true);
-    try {
-      await submitTransaction(formData);
-      navigate(`/accounts/${formData.accountId}`);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSubmitting(false);
-    }
+    // TODO (Frontend Step 5a): Submit the transaction and navigate on success.
+    //
+    // 1. setError(null) and setSubmitting(true)
+    // 2. try { await submitTransaction(formData); navigate(`/accounts/${formData.accountId}`); }
+    // 3. catch (e) { setError(e.message); }
+    // 4. finally { setSubmitting(false); }
   }
 
-  if (!accounts.length) return <p>Loading accounts…</p>;
-
-  return (
-    <TransactionForm
-      accounts={accounts}
-      onSubmit={handleSubmit}
-      submitting={submitting}
-      error={error}
-    />
-  );
+  // TODO (Frontend Step 5b): Render a loading guard, then the form.
+  //
+  // If accounts haven't loaded yet (accounts.length === 0), return:
+  //   <p>Loading accounts…</p>
+  //
+  // Otherwise return:
+  //   <TransactionForm
+  //     accounts={accounts}
+  //     onSubmit={handleSubmit}
+  //     submitting={submitting}
+  //     error={error}
+  //   />
+  return null; // replace with real render
 }
