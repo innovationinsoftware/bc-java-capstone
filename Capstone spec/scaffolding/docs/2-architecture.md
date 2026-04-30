@@ -5,9 +5,9 @@
 ```mermaid
 graph TD
     SPA["React 18 SPA\n(Vite, port 5173)"]
-    BFF["BFF\n(Spring Boot, port 8081)\nOAuth2 client — session-based"]
-    RS["Resource Server\n(Spring Boot, port 8082)\nStateless JWT"]
-    MockAuth["Mock Auth Server\n(Spring Auth Server, port 9000)\nPKCE public client: spa-client"]
+    BFF["BFF\n(Spring Boot, port 8080)\nOAuth2 client — session-based"]
+    RS["Resource Server\n(Spring Boot, port 8081)\nStateless JWT"]
+    MockAuth["Mock Auth Server\n(Spring Auth Server, port 9000)\nConfidential client: bank-client-bff"]
     Google["Google OAuth2\nAuthorization Server"]
     DB[("Oracle Database\n(XEPDB1)")]
     Kafka["Kafka Broker\n(localhost:9092)"]
@@ -52,12 +52,12 @@ CSRF is mitigated with `CookieCsrfTokenRepository` (read the token from the
 ### mock-auth (port 9000)
 
 Spring Authorization Server configured as a PKCE public-client IdP.  
-Two in-memory users — `alice/alice` (CUSTOMER) and `admin/admin` (ADMIN).  
+Two in-memory users — `alice/password` (CUSTOMER) and `admin/password` (ADMIN).  
 A `TokenCustomizer` adds a `"role"` claim to every issued JWT so the
 Resource Server can derive the `UserRole` without a database lookup at
 token issuance time.
 
-### BFF (port 8081)
+### BFF (port 8080)
 
 Session-based OAuth2 client.  Registers two providers:
 
@@ -68,7 +68,7 @@ After the authorization code exchange, the BFF holds the access token in
 the server-side `HttpSession` and proxies every `/api/**` call to the
 Resource Server, forwarding the JWT as a `Bearer` token.
 
-### Resource Server (port 8082)
+### Resource Server (port 8081)
 
 Stateless JWT validator.  Key components:
 

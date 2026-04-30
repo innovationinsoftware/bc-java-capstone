@@ -72,22 +72,14 @@ class AccountControllerIntegrationTest {
 
     @Test
     void customer_hitting_admin_endpoint_returns_403() throws Exception {
-        /*
-         * TODO (Day 2 — Step 2b): Test that a CUSTOMER token is denied access to
-         * /api/v1/admin/users with 403 Forbidden.
-         *
-         * Use .with(jwt()...) to simulate a JWT token with ROLE_CUSTOMER authority.
-         * The JWT builder pattern:
-         *   jwt().jwt(j -> j.subject("sub").claim("email", "x@y.com").claim("role", "CUSTOMER"))
-         *        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
-         *
-         * Expect: status().isForbidden()
-         *
-         * This verifies the hasRole("ADMIN") rule in SecurityConfig AND
-         * the @PreAuthorize("hasRole('ADMIN')") on UserController.
-         */
-        // TODO: implement this test
-        throw new UnsupportedOperationException("test not yet implemented");
+        mockMvc.perform(get("/api/v1/admin/users")
+                       .with(jwt().jwt(j -> j
+                           .subject("google-sub-123")
+                           .claim("email", "alice@example.com")
+                           .claim("role", "CUSTOMER"))
+                           .authorities(new org.springframework.security.core.authority
+                                   .SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+               .andExpect(status().isForbidden());
     }
 
     // ------------------------------------------------------------------ ownership (404)
@@ -148,62 +140,70 @@ class AccountControllerIntegrationTest {
 
     @Test
     void internal_transfer_returns_201_with_two_transaction_rows() throws Exception {
-        /*
-         * TODO (Day 2 — Step 4d): Integration test for internal transfer response shape.
-         *
-         * Stub transactionService.submit to return two rows:
-         *   outRow: type=TRANSFER_OUT, accountId=acc_src, counterparty=acc_dst,
-         *           transferGroupId=grp_abc, status=COMPLETED
-         *   inRow:  type=TRANSFER_IN,  accountId=acc_dst, counterparty=acc_src,
-         *           transferGroupId=grp_abc, status=COMPLETED
-         *
-         * POST /api/v1/transactions with TRANSFER_OUT body
-         *
-         * Assert:
-         *   - status 201
-         *   - $.length() == 2
-         *   - $[0].type == "TRANSFER_OUT"
-         *   - $[1].type == "TRANSFER_IN"
-         *   - both transferGroupId values == "grp_abc"
-         */
-        // TODO: implement this test
-        throw new UnsupportedOperationException("test not yet implemented");
+        LocalDateTime now = LocalDateTime.now();
+        TransactionDto outRow = new TransactionDto(
+                "txn_out", "acc_src", "TRANSFER_OUT", new BigDecimal("200.00"),
+                "COMPLETED", "acc_dst", "grp_abc", "rent", now);
+        TransactionDto inRow = new TransactionDto(
+                "txn_in", "acc_dst", "TRANSFER_IN", new BigDecimal("200.00"),
+                "COMPLETED", "acc_src", "grp_abc", "rent", now);
+
+        when(transactionService.submit(any(NewTransactionRequest.class), any()))
+                .thenReturn(List.of(outRow, inRow));
+        when(transactionService.toEvent(any(), any(), eq("USD")))
+                .thenReturn(new TransactionEvent("evt_1", "txn_out", "acc_src",
+                        "usr_1", "TRANSFER_OUT", new BigDecimal("200.00"),
+                        "USD", "COMPLETED", "acc_dst", "grp_abc", Instant.now()));
+
+        String body = mapper.writeValueAsString(
+                new NewTransactionRequest("acc_src", "TRANSFER_OUT",
+                        new BigDecimal("200.00"), "acc_dst", "rent"));
+
+        mockMvc.perform(post("/api/v1/transactions")
+                       .with(jwt().jwt(j -> j
+                           .subject("google-sub-123")
+                           .claim("email", "alice@example.com"))
+                           .authorities(new org.springframework.security.core.authority
+                                   .SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                       .contentType(MediaType.APPLICATION_JSON)
+                       .content(body))
+               .andExpect(status().isCreated())
+               .andExpect(jsonPath("$.length()").value(2))
+               .andExpect(jsonPath("$[0].type").value("TRANSFER_OUT"))
+               .andExpect(jsonPath("$[1].type").value("TRANSFER_IN"))
+               .andExpect(jsonPath("$[0].transferGroupId").value("grp_abc"))
+               .andExpect(jsonPath("$[1].transferGroupId").value("grp_abc"));
     }
 
     // ------------------------------------------------------------------ external transfer 503 → 502
 
     @Test
     void external_transfer_processor_503_returns_502() throws Exception {
-        /*
-         * TODO (Day 2 — Step 4e): Test that a PaymentProcessorException from the
-         * service is mapped to HTTP 502 Bad Gateway by GlobalExceptionHandler.
-         *
-         * Setup: stub transactionService.submit(...) to throw PaymentProcessorException
-         *
-         * Assert:
-         *   - status().isBadGateway()
-         *   - jsonPath("$.code").value("PAYMENT_PROCESSOR_ERROR")
-         *
-         * This verifies the GlobalExceptionHandler exception mapping.
-         */
-        // TODO: implement this test
-        throw new UnsupportedOperationException("test not yet implemented");
+        when(transactionService.submit(any(NewTransactionRequest.class), any()))
+                .thenThrow(new com.example.banking.exception.PaymentProcessorException("upstream 503"));
+
+        String body = mapper.writeValueAsString(
+                new NewTransactionRequest("acc_1", "TRANSFER_OUT",
+                        new BigDecimal("100.00"), "ext_counterparty", "invoice"));
+
+        mockMvc.perform(post("/api/v1/transactions")
+                       .with(jwt().jwt(j -> j
+                           .subject("google-sub-123")
+                           .claim("email", "alice@example.com"))
+                           .authorities(new org.springframework.security.core.authority
+                                   .SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                       .contentType(MediaType.APPLICATION_JSON)
+                       .content(body))
+               .andExpect(status().isBadGateway())
+               .andExpect(jsonPath("$.code").value("PAYMENT_PROCESSOR_ERROR"));
     }
 
     // ------------------------------------------------------------------ health (public)
 
     @Test
     void health_is_public_and_returns_200() throws Exception {
-        /*
-         * TODO (Day 2 — Step 2d): Test that GET /health is accessible without a token.
-         *
-         * This verifies that .requestMatchers(GET, "/health").permitAll() works.
-         *
-         * Use: mockMvc.perform(get("/health"))
-         *              .andExpect(status().isOk())
-         *              .andExpect(jsonPath("$.status").value("UP"))
-         */
-        // TODO: implement this test
-        throw new UnsupportedOperationException("test not yet implemented");
+        mockMvc.perform(get("/health"))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$.status").value("UP"));
     }
 }

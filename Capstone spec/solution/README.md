@@ -10,12 +10,12 @@ and a React 18 single-page application.
 Browser (React 18 — Vite, port 5173)
          | JSESSIONID cookie  | CSRF header
          v
-BFF  (Spring Boot, port 8081)
+BFF  (Spring Boot, port 8080)
   OAuth2 client - PKCE or Authorization Code
   Session-based; proxies REST calls to Resource Server
          | Bearer JWT
          v
-Resource Server  (Spring Boot, port 8082)
+Resource Server  (Spring Boot, port 8081)
   Stateless JWT; two-issuer decoder (mock-auth + Google)
   JwtAuthConverter -> upserts BANK_USERS row on first login
   Kafka producer -> transactions.completed topic
@@ -24,8 +24,8 @@ Resource Server  (Spring Boot, port 8082)
 Oracle DB (XEPDB1)  +  Kafka (localhost:9092)
 
 Mock Auth Server  (Spring Authorization Server, port 9000)
-  In-memory users: alice/alice (CUSTOMER), admin/admin (ADMIN)
-  PKCE public client: spa-client
+  In-memory users: alice/password (CUSTOMER), admin/password (ADMIN)
+  Confidential client: bank-client-bff
   Custom login page at /login
   Adds "role" claim to issued JWTs
 ```
@@ -50,7 +50,7 @@ REM 4. Frontend
 scripts\start-frontend.bat
 ```
 
-Then open **http://localhost:5173** and sign in with `alice / alice` (demo) or `admin / admin`.
+Then open **http://localhost:5173** and sign in with `alice / password` (demo) or `admin / password`.
 
 To use WireMock (payment-processor stub):
 
@@ -63,8 +63,8 @@ scripts\start-wiremock.bat
 | Module | Port | Description |
 |---|---|---|
 | `mock-auth` | 9000 | Spring Authorization Server |
-| `bff` | 8081 | OAuth2 client + reverse proxy |
-| `resource-server` | 8082 | JWT-secured REST API |
+| `bff` | 8080 | OAuth2 client + reverse proxy |
+| `resource-server` | 8081 | JWT-secured REST API |
 | frontend | 5173 | React 18 (Vite) |
 
 ## Running tests
@@ -86,8 +86,8 @@ npm test
 solution\
 +-- backend\                          Multi-module Maven project
 |   +-- mock-auth\                    Spring Authorization Server (port 9000)
-|   +-- bff\                          OAuth2 client + reverse proxy (port 8081)
-|   +-- resource-server\              JWT-secured REST API (port 8082)
+|   +-- bff\                          OAuth2 client + reverse proxy (port 8080)
+|   +-- resource-server\              JWT-secured REST API (port 8081)
 |       +-- src\main\java\com\example\banking\
 |           +-- config\               Security, CORS, JWT decoder, properties
 |           +-- controller\           Health, User, Account, Transaction

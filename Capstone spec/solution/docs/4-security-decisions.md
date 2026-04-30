@@ -22,7 +22,7 @@ The system supports two OAuth2 providers simultaneously:
 
 | Provider | Client registration | Used by |
 |---|---|---|
-| `mock-auth` | PKCE public client `spa-client` | "Sign in (Demo)" button |
+| `mock-auth` | Confidential client `bank-client-bff` | "Sign in (Demo)" button |
 | `google` | Confidential client (client secret) | "Sign in with Google" button |
 
 The BFF `application.yml` registers both under `spring.security.oauth2.client`.

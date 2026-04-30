@@ -32,7 +32,7 @@ Key points to hit:
    - "Sign in with Google" — starts Authorization Code flow against Google
 3. Click **Sign in (Demo)**. You are redirected to the mock-auth branded login page
    at **http://localhost:9000/login**.
-4. Enter `alice` / `alice` and submit.
+4. Enter `alice` / `password` and submit.
 5. You are redirected back to the app.
 6. Open **Chrome DevTools → Application → Cookies → localhost:5173**.
    Show the `JSESSIONID` cookie (value is opaque; `HttpOnly` flag set — JavaScript
@@ -66,7 +66,7 @@ Key points to hit:
 
 ## Step 4 — Admin flow + 403 boundary test (2 min)
 
-1. Sign out (clears `JSESSIONID`), then sign in as `admin` / `admin`.
+1. Sign out (clears `JSESSIONID`), then sign in as `admin` / `password`.
 2. The navigation shows an **Admin** link — open it and see the full user list.
 3. Sign out, sign in as `alice`. Open DevTools → Network, then navigate to
    `/api/v1/admin/users` directly. Show the **403 Forbidden** response and

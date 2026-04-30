@@ -1,5 +1,5 @@
 @echo off
-:: Start the BFF (session-based OAuth2 client + reverse proxy) on port 8081.
+:: Start the BFF (session-based OAuth2 client + reverse proxy) on port 8080.
 :: Usage:  scripts\start-bff.bat
 :: Stop:   Ctrl-C
 
@@ -17,5 +17,5 @@ if exist "%ROOT_DIR%\.env" (
 )
 
 cd /d "%ROOT_DIR%\backend\bff"
-echo Starting BFF on http://localhost:8081 ...
+echo Starting BFF on http://localhost:8080 ...
 mvn spring-boot:run

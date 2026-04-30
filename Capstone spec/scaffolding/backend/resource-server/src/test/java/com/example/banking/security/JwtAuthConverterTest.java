@@ -32,30 +32,50 @@ class JwtAuthConverterTest {
     // ------------------------------------------------------------------ first login creates row
 
     @Test
-    void first_login_creates_bank_user_row_from_jwt_sub() {
-        when(users.findBySubject("alice-sub")).thenReturn(Optional.empty());
-        when(users.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        converter.convert(jwt("alice-sub", "CUSTOMER", "alice@test.com"));
-
-        verify(users).save(argThat(u ->
-                u.getSubject().equals("alice-sub") &&
-                u.getEmail().equals("alice@test.com") &&
-                u.getRole() == UserRole.CUSTOMER
-        ));
+    void first_login_creates_bank_user_row_with_role_from_claim() {
+        /*
+         * TODO (Chapter 06 Part 2 — Step 3): Verify that the first call to convert()
+         * creates a new BANK_USERS row using the JWT sub, email, and role claims.
+         *
+         * Setup:
+         *   when(users.findBySubject("alice-sub")).thenReturn(Optional.empty());
+         *   when(users.save(any())).thenAnswer(inv -> inv.getArgument(0));
+         *
+         * Exercise:
+         *   converter.convert(jwt("alice-sub", "CUSTOMER", "alice@test.com"));
+         *
+         * Verify (using argThat):
+         *   verify(users).save(argThat(u ->
+         *       u.getSubject().equals("alice-sub") &&
+         *       u.getEmail().equals("alice@test.com") &&
+         *       u.getRole() == UserRole.CUSTOMER
+         *   ));
+         */
+        // TODO: implement this test
+        throw new UnsupportedOperationException("test not yet implemented");
     }
 
     // ------------------------------------------------------------------ subsequent login reuses existing row
 
     @Test
-    void subsequent_login_reuses_existing_bank_user_row() {
-        BankUserEntity existing = BankUserEntity.newUser(
-                "alice-sub", "alice@test.com", "Alice", UserRole.CUSTOMER);
-        when(users.findBySubject("alice-sub")).thenReturn(Optional.of(existing));
-
-        converter.convert(jwt("alice-sub", "CUSTOMER", "alice@test.com"));
-
-        verify(users, never()).save(any());
+    void subsequent_login_reuses_existing_row_and_role() {
+        /*
+         * TODO (Chapter 06 Part 2 — Step 4): Verify that a repeat login does NOT
+         * call users.save() — the existing row is reused.
+         *
+         * Setup:
+         *   BankUserEntity existing = BankUserEntity.newUser(
+         *       "alice-sub", "alice@test.com", "Alice", UserRole.CUSTOMER);
+         *   when(users.findBySubject("alice-sub")).thenReturn(Optional.of(existing));
+         *
+         * Exercise:
+         *   converter.convert(jwt("alice-sub", "CUSTOMER", "alice@test.com"));
+         *
+         * Verify:
+         *   verify(users, never()).save(any());
+         */
+        // TODO: implement this test
+        throw new UnsupportedOperationException("test not yet implemented");
     }
 
     // ------------------------------------------------------------------ admin role mapping

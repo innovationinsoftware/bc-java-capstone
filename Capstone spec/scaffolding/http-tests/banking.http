@@ -4,7 +4,7 @@
 # Session Storage, copy the access_token from the oidc.user:* entry, and paste
 # it below. Tokens last ~1 hour.
 
-@host = http://localhost:8081
+@host = http://localhost:8080
 @token = PASTE_GOOGLE_ACCESS_TOKEN_HERE
 
 ### health (public)

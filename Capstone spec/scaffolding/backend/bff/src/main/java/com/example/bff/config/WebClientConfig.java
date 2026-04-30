@@ -32,44 +32,23 @@ public class WebClientConfig {
     public WebClient resourceServerWebClient(
             @Value("${bank.resource-server.base-url}") String baseUrl) {
 
-        /*
-         * TODO (Day 2 — Step 6): Build a WebClient that forwards the user's OIDC
-         * id_token as a Bearer Authorization header to the Resource Server.
-         *
-         * Why id_token instead of access_token?
-         *   - Google's access_token is an OPAQUE token (ya29.xxx), not a JWT.
-         *     The Resource Server cannot validate it via its JwtDecoder.
-         *   - Both Google and mock-auth issue id_tokens as verifiable JWTs.
-         *   - mock-auth's TokenCustomizer adds the "role" claim to the id_token.
-         *
-         * Steps:
-         * 1. Create an ExchangeFilterFunction named oidcBearerFilter:
-         *      (request, next) -> {
-         *          // a) Get the current Security context:
-         *          Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-         *          // b) Check if auth is an OAuth2AuthenticationToken
-         *          //    AND its principal is an OidcUser:
-         *          if (auth instanceof OAuth2AuthenticationToken oauthToken
-         *                  && oauthToken.getPrincipal() instanceof OidcUser oidcUser) {
-         *              // c) Extract the raw JWT string:
-         *              String idToken = oidcUser.getIdToken().getTokenValue();
-         *              // d) Rebuild the request with the Authorization header:
-         *              ClientRequest withBearer = ClientRequest.from(request)
-         *                  .headers(h -> h.setBearerAuth(idToken))
-         *                  .build();
-         *              return next.exchange(withBearer);
-         *          }
-         *          // e) No OIDC session — pass through unchanged:
-         *          return next.exchange(request);
-         *      }
-         *
-         * 2. Build and return the WebClient:
-         *      WebClient.builder()
-         *          .baseUrl(baseUrl)
-         *          .filter(oidcBearerFilter)
-         *          .build()
-         */
-        throw new UnsupportedOperationException("WebClientConfig.resourceServerWebClient(): not yet implemented");
+        ExchangeFilterFunction oidcBearerFilter = (request, next) -> {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth instanceof OAuth2AuthenticationToken oauthToken
+                    && oauthToken.getPrincipal() instanceof OidcUser oidcUser) {
+                String idToken = oidcUser.getIdToken().getTokenValue();
+                ClientRequest withBearer = ClientRequest.from(request)
+                        .headers(h -> h.setBearerAuth(idToken))
+                        .build();
+                return next.exchange(withBearer);
+            }
+            return next.exchange(request);
+        };
+
+        return WebClient.builder()
+                .baseUrl(baseUrl)
+                .filter(oidcBearerFilter)
+                .build();
     }
 }
 

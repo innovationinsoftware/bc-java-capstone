@@ -32,39 +32,23 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthConverter jwtAuthConverter) throws Exception {
-        /*
-         * TODO (Day 2 — Step 1): Configure the Resource Server security filter chain.
-         *
-         * The Resource Server is stateless: no sessions, no CSRF, no browser-facing login.
-         * The BFF talks to it server-to-server, attaching a Bearer JWT on every request.
-         *
-         * Configure the following (in order):
-         *
-         * 1. CORS — disable entirely. Only the BFF (server-to-server) calls this service.
-         *      http.cors(cors -> cors.disable())
-         *
-         * 2. CSRF — disable entirely. Stateless JWT — no cookies, no CSRF attack surface.
-         *      http.csrf(csrf -> csrf.disable())
-         *
-         * 3. Session management — stateless. Never create an HttpSession.
-         *      http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-         *
-         * 4. Authorize HTTP requests:
-         *      a) Allow HTTP OPTIONS to any path (required for CORS pre-flight, even if CORS is
-         *         disabled; some clients still send OPTIONS).
-         *      b) Allow GET /health without authentication.
-         *      c) Require ROLE_ADMIN for /api/v1/admin/**
-         *      d) All other requests require any authenticated user.
-         *
-         * 5. OAuth2 Resource Server — validate Bearer JWTs using our custom converter:
-         *      http.oauth2ResourceServer(oauth2 -> oauth2
-         *          .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
-         *
-         * Finally return http.build().
-         *
-         * Note: @EnableMethodSecurity on this class enables @PreAuthorize on controller methods
-         * as a SECOND layer of RBAC (defence in depth).
-         */
-        throw new UnsupportedOperationException("SecurityConfig.securityFilterChain(): not yet implemented");
+        http
+            // No CORS needed — only the BFF talks to us, server-to-server.
+            .cors(cors -> cors.disable())
+            // No CSRF needed — stateless JWT, no cookies.
+            .csrf(csrf -> csrf.disable())
+            // Stateless — no HTTP session, no JSESSIONID cookie.
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/health").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated()
+            )
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter))
+            );
+
+        return http.build();
     }
 }

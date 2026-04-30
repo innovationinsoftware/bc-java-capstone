@@ -13,12 +13,10 @@
  */
 
 function readCsrfToken() {
-  // TODO (Frontend Step 1a): Parse the XSRF-TOKEN cookie from document.cookie.
-  //
-  // document.cookie is a single string of "; "-separated "name=value" pairs.
-  // Split on "; ", find the entry that startsWith("XSRF-TOKEN="),
-  // then extract the value after "=" with split("=")[1].
-  // Return undefined if the cookie isn't found.
+  return document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("XSRF-TOKEN="))
+    ?.split("=")[1];
 }
 
 export class ApiError extends Error {
@@ -30,18 +28,34 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, init = {}) {
-  // TODO (Frontend Step 1b): Implement the fetch wrapper.
-  //
-  // Step-by-step:
-  //   1. Get the HTTP method:   const method = (init.method ?? "GET").toUpperCase()
-  //   2. Build headers:         const headers = new Headers(init.headers ?? {})
-  //   3. Default Content-Type:  if init.body exists and "Content-Type" is not already set,
-  //                             headers.set("Content-Type", "application/json")
-  //   4. CSRF header:           if method is not "GET" and not "HEAD", call readCsrfToken().
-  //                             If a token is returned, headers.set("X-XSRF-TOKEN", csrf)
-  //   5. Fetch:                 const res = await fetch(path, { ...init, headers, credentials: "same-origin" })
-  //   6. 401 guard:             if (res.status === 401) throw new ApiError(401, { detail: "Unauthorized" })
-  //   7. Error guard:           if (!res.ok) { parse body with res.json().catch(() => ({})); throw new ApiError(res.status, body) }
-  //   8. Return body:           return res.status === 204 ? undefined : res.json()
-  throw new Error("apiFetch: not yet implemented");
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers = new Headers(init.headers ?? {});
+
+  // Default Content-Type for bodies
+  if (!headers.has("Content-Type") && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  // Attach CSRF token for mutating requests
+  if (method !== "GET" && method !== "HEAD") {
+    const csrf = readCsrfToken();
+    if (csrf) headers.set("X-XSRF-TOKEN", csrf);
+  }
+
+  const res = await fetch(path, {
+    ...init,
+    headers,
+    credentials: "same-origin",
+  });
+
+  if (res.status === 401) {
+    throw new ApiError(401, { detail: "Unauthorized" });
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body);
+  }
+
+  return res.status === 204 ? undefined : res.json();
 }

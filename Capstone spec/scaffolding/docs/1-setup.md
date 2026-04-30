@@ -41,7 +41,7 @@ The application supports **Google OIDC** as well as a local **mock authorization
 2. Create an **OAuth 2.0 Client ID** of type **Web Application**.
 3. Add the following **Authorized Redirect URIs**:
    ```
-   http://localhost:8081/login/oauth2/code/google
+   http://localhost:8080/login/oauth2/code/google
    ```
 4. Note your **Client ID** and **Client Secret**.
 5. Add them to the BFF's `application.yml` or pass as environment variables:
@@ -52,7 +52,7 @@ The application supports **Google OIDC** as well as a local **mock authorization
    ```
 
 > [!NOTE]
-> If you skip Google setup you can still use the **Demo login** (`alice` / `alice` or `admin` / `admin`) via the mock authorization server on port 9000.
+> If you skip Google setup you can still use the **Demo login** (`alice` / `password` or `admin` / `password`) via the mock authorization server on port 9000.
 
 > [!IMPORTANT]
 > Never commit `client_secret` to version control.
@@ -299,14 +299,14 @@ The backend is a **multi-module Maven project** with three Spring Boot applicati
 | Module | Main class | Port |
 |---|---|---|
 | `mock-auth` | `com.example.mockauth.MockAuthApplication` | 9000 |
-| `resource-server` | `com.example.banking.BankingApplication` | 8082 |
-| `bff` | `com.example.bff.BffApplication` | 8081 |
+| `resource-server` | `com.example.banking.BankingApplication` | 8081 |
+| `bff` | `com.example.bff.BffApplication` | 8080 |
 
 ### Required Environment Variables
 
 Set these in the IntelliJ run/debug configuration under **Environment variables**:
 
-**Resource Server (port 8082):**
+**Resource Server (port 8081):**
 
 | Variable | Docker value | Standalone value | Notes |
 |---|---|---|---|
@@ -315,7 +315,7 @@ Set these in the IntelliJ run/debug configuration under **Environment variables*
 | `ORACLE_USER` | *(omit — default `bankapp`)* | `bankapp` | Only needed if you used a different username |
 | `GOOGLE_CLIENT_ID` | `<your-google-client-id>` | `<your-google-client-id>` | Required only if using Google login |
 
-**BFF (port 8081):**
+**BFF (port 8080):**
 
 | Variable | Value | Notes |
 |---|---|---|
@@ -410,8 +410,8 @@ The app will be available at **http://localhost:5173**.
 - [ ] **2.** `docker compose up -d` (from `solution/`)
 - [ ] **3.** Wait for Oracle: `docker logs -f capstone-oracle` → `DATABASE IS READY TO USE`
 - [ ] **4.** Start `mock-auth` (port 9000) in IntelliJ
-- [ ] **5.** Start `resource-server` (port 8082) in IntelliJ — confirm Flyway migrations applied
-- [ ] **6.** Start `bff` (port 8081) in IntelliJ
+- [ ] **5.** Start `resource-server` (port 8081) in IntelliJ — confirm Flyway migrations applied
+- [ ] **6.** Start `bff` (port 8080) in IntelliJ
 - [ ] **7.** `npm run dev` in `solution/frontend/`
 - [ ] **8.** Open http://localhost:5173 and sign in
 - [ ] **9.** Seed demo accounts via SQL*Plus (first time only)
@@ -423,8 +423,8 @@ The app will be available at **http://localhost:5173**.
 - [ ] **3.** Start Kafka: run `scripts\start-kafka.bat` in its own terminal (leave it running)
 - [ ] **4.** Start WireMock: run `scripts\start-wiremock.bat` in its own terminal (leave it running)
 - [ ] **5.** Start `mock-auth` (port 9000) in IntelliJ
-- [ ] **6.** Start `resource-server` (port 8082) in IntelliJ — confirm Flyway migrations applied
-- [ ] **7.** Start `bff` (port 8081) in IntelliJ
+- [ ] **6.** Start `resource-server` (port 8081) in IntelliJ — confirm Flyway migrations applied
+- [ ] **7.** Start `bff` (port 8080) in IntelliJ
 - [ ] **8.** `npm run dev` in `solution/frontend/`
 - [ ] **9.** Open http://localhost:5173 and sign in
 - [ ] **10.** Seed demo accounts via SQL*Plus (first time only)

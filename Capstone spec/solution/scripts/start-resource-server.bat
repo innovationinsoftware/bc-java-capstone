@@ -1,5 +1,5 @@
 @echo off
-:: Start the Resource Server (JWT-secured REST API) on port 8082.
+:: Start the Resource Server (JWT-secured REST API) on port 8081.
 :: Usage:  scripts\start-resource-server.bat
 :: Stop:   Ctrl-C
 
@@ -17,5 +17,5 @@ if exist "%ROOT_DIR%\.env" (
 )
 
 cd /d "%ROOT_DIR%\backend\resource-server"
-echo Starting Resource Server on http://localhost:8082 ...
+echo Starting Resource Server on http://localhost:8081 ...
 mvn spring-boot:run

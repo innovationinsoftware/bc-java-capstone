@@ -17,7 +17,7 @@ import java.util.List;
  *
  * Accepts signed JWTs from two issuers:
  *   1. mock-auth (http://localhost:9000) — OIDC id_token forwarded by the BFF for
- *      users who logged in via mock-auth. Audience is validated to "spa-client".
+ *      users who logged in via mock-auth. Audience is validated to "bank-client-bff".
  *      The token includes a custom "role" claim set by mock-auth's TokenCustomizer.
  *   2. Google (https://accounts.google.com) — OIDC id_token forwarded by the BFF
  *      for users who logged in via Google. No audience enforcement (Google's audience
@@ -40,12 +40,12 @@ public class JwtDecoderConfig {
         NimbusJwtDecoder mockAuthDecoder = JwtDecoders.fromIssuerLocation(mockAuthIssuerUri);
         OAuth2TokenValidator<Jwt> audienceValidator = token -> {
             List<String> audience = token.getAudience();
-            if (audience != null && audience.contains("spa-client")) {
+            if (audience != null && audience.contains("bank-client-bff")) {
                 return OAuth2TokenValidatorResult.success();
             }
             return OAuth2TokenValidatorResult.failure(
                     new OAuth2Error("invalid_token",
-                            "Token audience does not include spa-client", null));
+                            "Token audience does not include bank-client-bff", null));
         };
         mockAuthDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(mockAuthIssuerUri), audienceValidator));

@@ -106,20 +106,18 @@ class TransactionServiceTest {
 
     @Test
     void submit_against_account_owned_by_another_user_throws_not_found() {
-        /*
-         * TODO (Day 1 — Step 3d): Test that a caller cannot access another user's account.
-         *
-         * Security rule: a non-owned account returns 404 (not 403) to avoid
-         * leaking whether the account exists at all.
-         *
-         * Setup: account with ownerId="usr_other"
-         * Exercise: call submit() with callerUserId="usr_attacker"
-         * Verify:
-         *   - throws ResourceNotFoundException
-         *   - balance unchanged
-         */
-        // TODO: implement this test
-        throw new UnsupportedOperationException("test not yet implemented");
+        AccountEntity acct = account("acc_other", "usr_other", new BigDecimal("500.00"));
+        when(accounts.findById("acc_other")).thenReturn(Optional.of(acct));
+
+        // usr_attacker tries to submit against usr_other's account
+        assertThatThrownBy(() -> svc.submit(
+                new NewTransactionRequest("acc_other", "WITHDRAWAL",
+                        new BigDecimal("1.00"), null, null),
+                "usr_attacker"))
+            .isInstanceOf(ResourceNotFoundException.class);
+
+        // no money moved
+        assertThat(acct.getBalance()).isEqualByComparingTo("500.00");
     }
 
     // ------------------------------------------------------------------ internal transfer
@@ -155,24 +153,23 @@ class TransactionServiceTest {
 
     @Test
     void external_transfer_success_completes_and_debits() {
-        /*
-         * TODO (Day 2 — Step 4b): Test external transfer when the payment processor succeeds.
-         *
-         * Setup:
-         *   - account: "acc_1", owner "usr_1", balance 1000.00
-         *   - accounts.findByOwnerId("usr_1") returns only List.of(acct)
-         *     ("ext_counterparty" is NOT in the list → triggers external path)
-         *   - paymentService.submitExternalTransfer(any, any, any, any, any) does nothing (doNothing)
-         *
-         * Exercise: submit TRANSFER_OUT from acc_1 to "ext_counterparty" of 250.00
-         *
-         * Verify:
-         *   - result has size 1, status COMPLETED
-         *   - balance deducted to 750.00
-         *   - verify(paymentService).submitExternalTransfer(any, any, any, any, any)
-         */
-        // TODO: implement this test
-        throw new UnsupportedOperationException("test not yet implemented");
+        AccountEntity acct = account("acc_1", "usr_1", new BigDecimal("1000.00"));
+        when(accounts.findById("acc_1")).thenReturn(Optional.of(acct));
+        // "ext_counterparty" is NOT in usr_1's owned accounts → external path
+        when(accounts.findByOwnerId("usr_1")).thenReturn(List.of(acct));
+        when(transactions.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // payment service succeeds (no exception)
+        doNothing().when(paymentService).submitExternalTransfer(any(), any(), any(), any(), any());
+
+        List<TransactionDto> result = svc.submit(
+                new NewTransactionRequest("acc_1", "TRANSFER_OUT",
+                        new BigDecimal("250.00"), "ext_counterparty", "invoice"),
+                "usr_1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).status()).isEqualTo(TransactionStatus.COMPLETED.name());
+        assertThat(acct.getBalance()).isEqualByComparingTo("750.00");
+        verify(paymentService).submitExternalTransfer(any(), any(), any(), any(), any());
     }
 
     @Test

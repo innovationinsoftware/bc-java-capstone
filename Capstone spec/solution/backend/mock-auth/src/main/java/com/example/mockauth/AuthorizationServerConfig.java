@@ -34,7 +34,7 @@ import java.util.UUID;
  *
  * Registers:
  *   - Two in-memory users: alice (CUSTOMER) and admin (ADMIN)
- *   - One confidential client: spa-client / spa-secret
+ *   - One confidential client: bank-client-bff / bank-client-bff-secret
  *
  * Auto-exposes:
  *   /.well-known/openid-configuration, /oauth2/authorize, /oauth2/token,
@@ -74,11 +74,11 @@ public class AuthorizationServerConfig {
     public UserDetailsService userDetailsService() {
         PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
         var alice = User.withUsername("alice")
-                .password(encoder.encode("alice"))
+                .password(encoder.encode("password"))
                 .roles("CUSTOMER")
                 .build();
         var admin = User.withUsername("admin")
-                .password(encoder.encode("admin"))
+                .password(encoder.encode("password"))
                 .roles("ADMIN")
                 .build();
         return new InMemoryUserDetailsManager(alice, admin);
@@ -88,19 +88,21 @@ public class AuthorizationServerConfig {
 
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
-        RegisteredClient spaClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("spa-client")
-                .clientAuthenticationMethod(ClientAuthenticationMethod.NONE) // Public client
+        PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        RegisteredClient bffClient = RegisteredClient.withId(UUID.randomUUID().toString())
+                .clientId("bank-client-bff")
+                .clientSecret(encoder.encode("bank-client-bff-secret"))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("http://localhost:8081/login/oauth2/code/mock-auth")
+                .redirectUri("http://localhost:8080/login/oauth2/code/mock-auth")
                 .redirectUri("http://localhost:5173/login/oauth2/code/mock-auth")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope("email")
                 .clientSettings(ClientSettings.builder()
                         .requireAuthorizationConsent(false)
-                        .requireProofKey(true)  // PKCE required
+                        .requireProofKey(false)  // Confidential client — PKCE not required
                         .build())
                 .tokenSettings(TokenSettings.builder()
                         .accessTokenTimeToLive(Duration.ofMinutes(30))
@@ -108,7 +110,7 @@ public class AuthorizationServerConfig {
                         .build())
                 .build();
 
-        return new InMemoryRegisteredClientRepository(spaClient);
+        return new InMemoryRegisteredClientRepository(bffClient);
     }
 
     // ---- Token customizer: add role claim to JWT ----

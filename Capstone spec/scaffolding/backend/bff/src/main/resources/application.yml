@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8080
 
 spring:
   application:
@@ -11,8 +11,9 @@ spring:
         registration:
           # ---- Primary: Mock Authorization Server (required for capstone) ----
           mock-auth:
-            client-id: spa-client
-            client-authentication-method: none
+            client-id: bank-client-bff
+            client-secret: bank-client-bff-secret
+            client-authentication-method: client_secret_basic
             authorization-grant-type: authorization_code
             # Redirect back through the Vite dev-proxy (5173) so that the callback
             # request travels through the same proxy as the rest of the OAuth2 flow.
@@ -42,7 +43,7 @@ spring:
 # ---- Resource Server base URL ----
 bank:
   resource-server:
-    base-url: ${RESOURCE_SERVER_URL:http://localhost:8082}
+    base-url: ${RESOURCE_SERVER_URL:http://localhost:8081}
 
 # ---- Frontend base URL (used for post-login redirect) ----
 app:

@@ -16,12 +16,10 @@ export function useMe() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO (Frontend Step 2): Fetch the current user's profile.
-    //
-    // Call apiFetch("/api/v1/users/me")
-    //   .then(setUser)               — store the returned user object in state
-    //   .catch(() => setUser(null))  — on any error (including 401), set user to null
-    //   .finally(() => setLoading(false)); — always clear the loading flag when done
+    apiFetch("/api/v1/users/me")
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   return { user, loading };

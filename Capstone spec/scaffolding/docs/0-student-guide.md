@@ -46,8 +46,8 @@ You are building a small banking back-end composed of three Spring Boot modules 
 | Module | Port | Role |
 |---|---|---|
 | `mock-auth` | 9000 | Spring Authorization Server — issues JWTs for `alice` and `admin` |
-| `resource-server` | 8082 | Business logic — accounts, transactions, Kafka events |
-| `bff` | 8081 | Backend-for-Frontend — session + CSRF, proxies to resource-server |
+| `resource-server` | 8081 | Business logic — accounts, transactions, Kafka events |
+| `bff` | 8080 | Backend-for-Frontend — session + CSRF, proxies to resource-server |
 | Frontend (Vite) | 5173 | React SPA — talks only to the BFF |
 | WireMock | 8089 | Simulates the external Payment Processor |
 
@@ -105,8 +105,8 @@ cd scripts
 ```http
 ### Health checks
 GET http://localhost:9000/.well-known/openid-configuration
-GET http://localhost:8082/health
 GET http://localhost:8081/health
+GET http://localhost:8080/health
 GET http://localhost:8089/__admin/mappings
 ```
 
@@ -439,10 +439,10 @@ public AbstractAuthenticationToken convert(Jwt jwt) {
 
 #### Verify
 
-Start the resource server. `GET http://localhost:8082/health` should return 200
+Start the resource server. `GET http://localhost:8081/health` should return 200
 without a token (public endpoint).
 
-`GET http://localhost:8082/api/v1/accounts` without a token should return **401**.
+`GET http://localhost:8081/api/v1/accounts` without a token should return **401**.
 
 ---
 
@@ -472,10 +472,10 @@ then:
 
 ```http
 ### Must return 401
-GET http://localhost:8082/api/v1/accounts
+GET http://localhost:8081/api/v1/accounts
 
 ### After login via BFF — must return your accounts
-GET http://localhost:8081/api/v1/accounts
+GET http://localhost:8080/api/v1/accounts
 ```
 
 ---
@@ -788,7 +788,7 @@ Using the frontend or the `.http` file:
 
 ```http
 ### Should return 201 COMPLETED
-POST http://localhost:8081/api/v1/transactions
+POST http://localhost:8080/api/v1/transactions
 Content-Type: application/json
 X-XSRF-TOKEN: {{csrfToken}}
 
@@ -801,7 +801,7 @@ X-XSRF-TOKEN: {{csrfToken}}
 }
 
 ### Should return 502 PAYMENT_PROCESSOR_ERROR
-POST http://localhost:8081/api/v1/transactions
+POST http://localhost:8080/api/v1/transactions
 Content-Type: application/json
 X-XSRF-TOKEN: {{csrfToken}}
 
@@ -1123,9 +1123,9 @@ Before submitting your capstone, verify every item below. See
 
 | # | Check | How to verify |
 |---|---|---|
-| 1 | No CSRF token on GET requests — `GET /api/v1/accounts` works without `X-XSRF-TOKEN` | `curl http://localhost:8081/api/v1/accounts` (with session) |
+| 1 | No CSRF token on GET requests — `GET /api/v1/accounts` works without `X-XSRF-TOKEN` | `curl http://localhost:8080/api/v1/accounts` (with session) |
 | 2 | POST without CSRF token returns **403** | Remove `X-XSRF-TOKEN` from a POST |
-| 3 | Unauthenticated request to `/api/v1/accounts` returns **401** (not 302) | `curl http://localhost:8081/api/v1/accounts` |
+| 3 | Unauthenticated request to `/api/v1/accounts` returns **401** (not 302) | `curl http://localhost:8080/api/v1/accounts` |
 | 4 | Customer JWT cannot access `/api/v1/admin/users` — returns **403** | Log in as alice, try the admin endpoint |
 | 5 | Alice cannot see Bob's accounts — returns **404** | Use alice's session to request a known Bob account ID |
 | 6 | Withdrawal exceeding balance returns **422** with `INSUFFICIENT_FUNDS` | POST WITHDRAWAL for more than the balance |
@@ -1159,8 +1159,8 @@ Before submitting your capstone, verify every item below. See
 | Service | URL | Notes |
 |---|---|---|
 | mock-auth | `http://localhost:9000` | OIDC issuer |
-| resource-server | `http://localhost:8082` | JWT-protected REST API |
-| BFF | `http://localhost:8081` | Session-based proxy |
+| resource-server | `http://localhost:8081` | JWT-protected REST API |
+| BFF | `http://localhost:8080` | Session-based proxy |
 | Frontend (Vite) | `http://localhost:5173` | React SPA |
 | WireMock | `http://localhost:8089` | Payment processor stub |
 | Oracle (standalone) | `localhost:1522` | Service `XEPDB1` |
@@ -1169,8 +1169,8 @@ Before submitting your capstone, verify every item below. See
 
 | Demo user | Password | Role |
 |---|---|---|
-| `alice` | `alice` | CUSTOMER |
-| `admin` | `admin` | ADMIN |
+| `alice` | `password` | CUSTOMER |
+| `admin` | `password` | ADMIN |
 
 | Database | Username | Password |
 |---|---|---|

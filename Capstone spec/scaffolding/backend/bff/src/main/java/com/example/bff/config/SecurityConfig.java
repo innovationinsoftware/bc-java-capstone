@@ -41,67 +41,61 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        /*
-         * TODO (Day 2 — Step 5): Configure the BFF (Backend-for-Frontend) security chain.
-         *
-         * The BFF is session-based and browser-facing. Unlike the Resource Server,
-         * it DOES use sessions and DOES enforce CSRF protection.
-         *
-         * 1. Authorize HTTP requests:
-         *      a) Permit: "/", "/index.html", "/assets/**", "/favicon.ico"  (SPA static files)
-         *      b) Permit: "/login/**", "/oauth2/**"  (Spring's OAuth2 login endpoints)
-         *      c) Permit: "/health", "/error"  (avoid redirect loops on error page)
-         *      d) All other requests must be authenticated.
-         *
-         * 2. Exception handling — for /api/** requests return 401 instead of redirecting
-         *    to the login page (the SPA handles redirects itself):
-         *      http.exceptionHandling(ex -> ex
-         *          .defaultAuthenticationEntryPointFor(
-         *              new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-         *              new AntPathRequestMatcher("/api/**")
-         *          )
-         *      )
-         *
-         * 3. OAuth2 Login:
-         *      http.oauth2Login(oauth2 -> oauth2
-         *          .defaultSuccessUrl(frontendBaseUrl + "/", true)
-         *          .authorizationEndpoint(authz -> authz
-         *              .authorizationRequestRepository(new CookieOAuth2AuthorizationRequestRepository())
-         *          )
-         *      )
-         *    The CookieOAuth2AuthorizationRequestRepository stores PKCE state in a
-         *    cookie instead of the server session, preventing state-mismatch errors.
-         *
-         * 4. Logout:
-         *      http.logout(logout -> logout
-         *          .logoutSuccessUrl(frontendBaseUrl + "/")
-         *          .invalidateHttpSession(true)
-         *          .deleteCookies("JSESSIONID")
-         *      )
-         *
-         * 5. CSRF — use cookie-based token so the SPA can read it:
-         *      http.csrf(csrf -> csrf
-         *          .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-         *          .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-         *      )
-         *
-         * 6. Add the CSRF eager-load filter below (already provided — do not modify it).
-         *    Spring Security 6 defers CSRF token loading; without this filter the
-         *    XSRF-TOKEN cookie never appears on GET requests and logout always returns 403.
-         */
-        throw new UnsupportedOperationException("SecurityConfig.securityFilterChain(): not yet implemented");
+        http
+            .authorizeHttpRequests(auth -> auth
+                // Static SPA assets (prod: served from resources/static/)
+                .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico").permitAll()
+                // OAuth2 login/logout endpoints must be open
+                .requestMatchers("/login/**", "/oauth2/**").permitAll()
+                // Health check and error page must be public (avoids /error?continue redirect loop)
+                .requestMatchers("/health", "/error").permitAll()
+                // Everything else requires an authenticated session
+                .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                // Return 401 Unauthorized for REST API requests instead of redirecting to login
+                .defaultAuthenticationEntryPointFor(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                    new AntPathRequestMatcher("/api/**")
+                )
+            )
+            // OAuth2 login — Spring auto-exposes /oauth2/authorization/{registrationId}
+            // and /login/oauth2/code/{registrationId}. Supports both mock-auth and google.
+            .oauth2Login(oauth2 -> oauth2
+                .defaultSuccessUrl(frontendBaseUrl + "/", true)
+                // Store the OAuth2 authorization request (state + PKCE) in a cookie instead
+                // of the server-side session. This prevents state-mismatch errors caused by
+                // concurrent anonymous API calls creating multiple sessions at page load.
+                .authorizationEndpoint(authz -> authz
+                    .authorizationRequestRepository(new CookieOAuth2AuthorizationRequestRepository())
+                )
+            )
+            // Logout invalidates the session and clears the cookie.
+            .logout(logout -> logout
+                .logoutSuccessUrl(frontendBaseUrl + "/")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
+            )
+            // CSRF protection with cookie-based token repository.
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+            )
+            // Spring Security 6 defers CSRF token loading; the XSRF-TOKEN cookie is only
+            // written when something calls getToken() on the deferred token. Without this
+            // filter the cookie never appears on GET requests and logout always gets 403.
+            .addFilterAfter(new OncePerRequestFilter() {
+                @Override
+                protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res,
+                                                FilterChain chain) throws ServletException, IOException {
+                    CsrfToken token = (CsrfToken) req.getAttribute(CsrfToken.class.getName());
+                    if (token != null) {
+                        token.getToken(); // subscribe → forces cookie to be written
+                    }
+                    chain.doFilter(req, res);
+                }
+            }, CsrfFilter.class);
 
-        // --- Provided helper: add this AFTER you implement steps 1-5 above ---
-        // .addFilterAfter(new OncePerRequestFilter() {
-        //     @Override
-        //     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res,
-        //                                     FilterChain chain) throws ServletException, IOException {
-        //         CsrfToken token = (CsrfToken) req.getAttribute(CsrfToken.class.getName());
-        //         if (token != null) token.getToken(); // forces cookie write
-        //         chain.doFilter(req, res);
-        //     }
-        // }, CsrfFilter.class);
-        //
-        // return http.build();
+        return http.build();
     }
 }
