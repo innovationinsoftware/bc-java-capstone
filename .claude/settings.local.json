@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from zipfile import ZipFile; import re; z=ZipFile\\('Capstone Rubric v2.xlsx'\\); names=z.namelist\\(\\); print\\('\\\\n'.join\\(names\\)\\)\")",
+      "Bash(python -c ' *)"
+    ]
+  }
+}

@@ -1,14 +1,13 @@
 # 07 — Security Validation
 
-Day 2 late afternoon. ~30 minutes. The full SAST/DAST workflow from a 2-day
-capstone is too big for two days. You will run a tighter pass: a hardening
-grep sweep, one Checkmarx scan, and a write-up of the findings.
+Day 2 afternoon. ~90 minutes. You will run the hardening checks the rubric
+grades you on, plus one Checkmarx scan, one DAST baseline, and one custom
+banking payload class.
 
 Re-read [`../07-testing.md`](../07-testing.md) sections "Checkmarx SAST scan"
-and "DAST scan" if you have time. The full version is what you would do on
-a real project.
+and "DAST scan" before starting.
 
-## Task 7.1 — Hardening grep sweep
+## Task 7.1 — Hardening grep sweep (~10 min)
 
 Run these checks on your repo and fix anything that fails:
 
@@ -36,7 +35,7 @@ secrets accidentally committed in `.env` or `application-local.yml`. If
 the latter happened, **rotate those credentials** — git history makes them
 permanent unless you rewrite history.
 
-## Task 7.2 — Run Checkmarx (one scan)
+## Task 7.2 — Run Checkmarx (~30 min)
 
 Your instructor will give you access credentials and a one-page run-book.
 Schedule the scan as soon as you can — the report can take 15-30 minutes,
@@ -70,15 +69,75 @@ or Defer with a sentence each.
 - SQL injection via string concatenation. Should be zero findings if you
   used Spring Data — verify.
 
-## Task 7.3 — Confirm the rubric's hardening checklist
+## Task 7.3 — DAST baseline scan (~15 min)
 
-Run through these manually. They are the items the rubric grades you on
-during the demo:
+Run an OWASP ZAP baseline (passive only — no active probes) against the
+running BFF. ZAP will crawl, inspect headers and cookies, and report
+configuration-level issues without trying to break the app.
+
+```bash
+# Docker form (works on any machine with Docker)
+docker run --rm -v "$(pwd):/zap/wrk:rw" \
+    --network host \
+    -t zaproxy/zap-stable zap-baseline.py \
+    -t http://localhost:8080 \
+    -r dast-baseline.html
+```
+
+(Or the Windows installer / standalone JAR with the same `zap-baseline`
+command — your instructor may have a preferred path.)
+
+The scan finishes in 1-5 minutes. Findings to expect:
+
+- `X-Frame-Options` / `X-Content-Type-Options` headers (missing → fix or document)
+- Cookie `SameSite` / `Secure` flags
+- Verbose `Server:` headers
+- Redirect-to-HTTPS configuration (production-only — accept for the
+  dev environment)
+
+Record what ZAP flagged in `docs/dast-payloads.md` with the same
+fix / accept / defer columns as SAST. Most findings here are about
+hardening headers — easy to fix, easy to write up.
+
+## Task 7.4 — One custom payload class (~30 min)
+
+The rubric's DAST line specifically grades **custom banking payloads**.
+Pick the easiest of the three classes from the spec — the
+**authorization probes** — and document each. The integration tests in
+chapters 04 and 05 already exercise most of these paths; this task is
+about *demonstrating* them with documentation, not re-implementing them.
+
+For each probe below, send the request via `http-tests/banking.http` (or
+`curl`), record what came back, and write one sentence in
+`docs/dast-payloads.md` explaining why the response is correct.
+
+| Probe | Expected | Why correct |
+|---|---|---|
+| Submit a transaction with `accountId` you don't own | **404** | Not 403 — 403 would confirm the account exists |
+| `GET /api/v1/admin/users` as a `CUSTOMER` token | **403** | URL filter + `@PreAuthorize` both fire |
+| Replay a JWT with a tampered signature (flip one byte) | **401** | RS validates signature on every request |
+| Replay an expired JWT (manually craft one with `exp` in the past) | **401** | RS validates `exp` claim |
+| `POST /api/v1/transactions` to the BFF with no `X-XSRF-TOKEN` | **403** | CSRF protection on mutating verbs |
+
+To get a valid token to mutate, sign in as alice, then in DevTools →
+Application → Cookies, copy the `JSESSIONID`. The BFF holds the access
+token; you'll need to call the RS directly with a Bearer to test
+JWT-tampering paths. Your instructor can walk you through extracting one
+if needed.
+
+If you finish early, run ZAP **active** against `/api/v1` (not baseline)
+or design a second class (bulk-transfer abuse — submit 50 withdrawals in
+a tight loop, document what landed in the DB).
+
+## Task 7.5 — Hardening checklist (~10 min)
+
+Run through these manually. They are the items the rubric grades during
+the demo:
 
 | # | Check | How to verify |
 |---|---|---|
 | 1 | DevTools after sign-in shows only `JSESSIONID` (HttpOnly) and `XSRF-TOKEN`. Storage is empty. | Sign in, open DevTools → Application → Cookies + Storage |
-| 2 | `curl http://localhost:8082/api/v1/accounts` direct to RS → 401 | Bearer-less request |
+| 2 | `curl http://localhost:8081/api/v1/accounts` direct to RS → 401 | Bearer-less request |
 | 3 | POST without `X-XSRF-TOKEN` → 403 | Use curl/Postman without the header |
 | 4 | Customer hitting `/api/v1/admin/users` → 403 | Sign in as alice |
 | 5 | Customer hitting another customer's `/api/v1/accounts/{id}` → **404** (not 403) | Use a known account ID owned by another user |
@@ -87,7 +146,7 @@ during the demo:
 
 Any row that fails is a **must-fix** before the demo.
 
-## Task 7.4 — Security write-up
+## Task 7.6 — Security write-up (~15 min)
 
 Update `docs/security-decisions.md` to cover, briefly:
 
@@ -104,33 +163,15 @@ Update `docs/security-decisions.md` to cover, briefly:
 One page is plenty. The grader wants to see you understood the model,
 not a thesis.
 
-## Cut from the 2-day version (with consequences)
-
-The parent rubric and Definition of Done both require a DAST run plus
-custom banking payloads. We've cut these from the 2-day plan because
-they don't fit. **You will lose points on the Testing & Security
-Validation slice (15%) for skipping them** — that's a deliberate
-trade-off, not "not required":
-
-- A DAST baseline scan with OWASP ZAP — see [`../09-deliverables-and-rubric.md`](../09-deliverables-and-rubric.md)
-  Section 4 and [`../10-definition-of-done.md`](../10-definition-of-done.md)
-  "Testing & security validation."
-- Three custom banking payload classes (bulk-transfer abuse, malformed
-  inputs, authorization probes) per [`../07-testing.md`](../07-testing.md).
-  The integration tests in chapters 04 and 05 already prove most of those
-  paths, but the rubric grades the dedicated payload write-ups separately.
-
-**If you finish early**, run a ZAP baseline against `http://localhost:8081`
-(active scan disabled — passive only) and append the findings to
-`docs/dast-payloads.md`. It only takes 5-10 minutes and recovers most of
-the points. A full active scan plus three custom payloads pushes you toward
-"Exceeds" on this slice.
-
 ## Done when
 
 - [ ] All four `grep` sweeps in 7.1 are clean.
 - [ ] One Checkmarx scan run; `docs/sast-findings.md` has a row per finding.
-- [ ] All seven hardening checklist rows in 7.3 behave correctly.
+- [ ] One ZAP baseline run; `docs/dast-payloads.md` has the baseline section
+      populated.
+- [ ] All five authorization-probe rows in 7.4 documented with response +
+      one-line rationale.
+- [ ] All seven hardening checklist rows in 7.5 behave correctly.
 - [ ] `docs/security-decisions.md` reflects the actual implementation.
 
 Next: [08-deliverables-and-demo.md](./08-deliverables-and-demo.md).

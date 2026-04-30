@@ -2,12 +2,15 @@
 
 Welcome to the Banking Capstone. The scaffolding under `Capstone spec/scaffolding/`
 is a working skeleton: builds compile, services start, the database schema migrates,
-the React shell renders, and the **security plumbing** (BFF SecurityConfig, WebClient
-OIDC filter, Resource Server filter chain, OAuth login flow) is wired up for you.
+the React SPA is **fully implemented**, and the **security plumbing** (BFF
+SecurityConfig, WebClient OIDC filter, Resource Server filter chain, OAuth login
+flow) is wired up for you.
 
-Your job in two days is to fill in the deliberately-empty methods that turn the
-skeleton into a working banking app, exercise the BFF pattern end-to-end, and
-prove the result is safe.
+Your job in two days is to fill in the backend domain logic and security
+converter, write the tests that prove they behave, and demonstrate the BFF
+pattern end-to-end. **You will not write any React or TypeScript** — the
+frontend is provided. You will, however, need to read it well enough to demo
+it and answer questions about it.
 
 ## How to use these docs
 
@@ -21,9 +24,9 @@ chapters assume the code you wrote in earlier ones is in place.
 | 03 | [Deposit & Withdrawal](./03-deposit-and-withdrawal.md) | Day 1 morning |
 | 04 | [Resource Server Security](./04-resource-server-security.md) | Day 1 afternoon |
 | 05 | [Transfers](./05-transfers.md) | Day 2 morning |
-| 06 | [Frontend](./06-frontend.md) | Day 2 afternoon |
-| 07 | [Security Validation](./07-security-validation.md) | Day 2 late afternoon |
-| 08 | [Deliverables & Demo](./08-deliverables-and-demo.md) | Day 2 final hour |
+| 06 | [Frontend Tour](./06-frontend.md) | Day 2 mid-day |
+| 07 | [Security Validation](./07-security-validation.md) | Day 2 afternoon |
+| 08 | [Deliverables & Demo](./08-deliverables-and-demo.md) | Day 2 final block |
 
 ## Day-by-day plan
 
@@ -41,13 +44,15 @@ chapters assume the code you wrote in earlier ones is in place.
 | Block | Activity |
 |---|---|
 | 4 hrs | TRANSFER_OUT (internal + external) + tests (chapter 05) |
-| 3 hrs | Frontend `apiFetch`, `useMe`, two page components (chapter 06) |
-| 30 min | Hardening sweep + one Checkmarx scan (chapter 07) |
-| 30 min | Final polish, demo dry-run (chapter 08) |
+| 30 min | Frontend tour — read, run, prepare to demo (chapter 06) |
+| 1 hr | PaymentService + JwtAuthConverter unit tests (chapter 06) |
+| 1 hr | Hardening sweep + Checkmarx scan + DAST baseline (chapter 07) |
+| 30 min | One custom DAST payload class (chapter 07) |
+| 1 hr | Demo dry-run + final polish (chapter 08) |
 
-Day 2 is tight. If you fall behind on Day 1, push the WITHDRAWAL unit tests
-into Day 2 morning — but do not skip the JwtAuthConverter. The whole RBAC
-story depends on it.
+Day 2 is full but achievable. If you fall behind on Day 1, push the
+WITHDRAWAL unit tests into Day 2 morning — but do not skip the
+JwtAuthConverter. The whole RBAC story depends on it.
 
 ## What's pre-built (don't reinvent)
 
@@ -59,11 +64,13 @@ during the codebase tour; do not rewrite them.
 - BFF `WebClientConfig` (the OIDC bearer-token filter that makes BFF work)
 - All proxy controllers, DTOs, entities, repositories, exceptions, Kafka
   publisher, Flyway migrations, mock-auth users + client
-- React routing, layout, `<AccountCard>`, `<TransactionList>`, `<TransactionForm>`,
-  `<ErrorBanner>`, `NewTransactionPage`, `AccountCard.test.jsx`
+- **The entire React SPA** — apiClient, hooks, page components, shells,
+  tests. You read it; you don't write it.
 
 You will still **read** every one of these as part of chapter 02 — the demo
-expects you to explain why they look the way they do.
+expects you to explain why they look the way they do, and the demo Q&A may
+include "walk us through how the SPA submits a transaction" or "what happens
+in the SPA when an API call returns 401?"
 
 ## What "done" looks like
 

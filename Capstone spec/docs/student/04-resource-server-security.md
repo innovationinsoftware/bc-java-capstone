@@ -52,14 +52,15 @@ ownership IDs don't match.
 
 ## Task 4.2 — Smoke test the security boundary
 
-Restart the Resource Server, log in via the SPA as `alice`, and confirm:
+Restart the Resource Server, log in via the SPA as `alice` / `password`,
+and confirm:
 
 | Request | Expected |
 |---|---|
-| `GET http://localhost:8082/health` | **200** |
-| `GET http://localhost:8082/api/v1/accounts` (no token, direct to RS) | **401** |
-| `GET http://localhost:8081/api/v1/accounts` (via BFF, signed in) | **200**, alice's accounts |
-| `GET http://localhost:8081/api/v1/admin/users` (alice = CUSTOMER) | **403** |
+| `GET http://localhost:8081/health` | **200** |
+| `GET http://localhost:8081/api/v1/accounts` (no token, direct to RS) | **401** |
+| `GET http://localhost:8080/api/v1/accounts` (via BFF, signed in) | **200**, alice's accounts |
+| `GET http://localhost:8080/api/v1/admin/users` (alice = CUSTOMER) | **403** |
 
 If a `CUSTOMER` gets 200 on the admin endpoint, the JWT's `role` claim is
 not making it through to your converter — check that mock-auth is issuing

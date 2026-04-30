@@ -14,8 +14,8 @@ scaffolding/
 ├── backend/
 │   ├── pom.xml                 (parent POM — packaging=pom)
 │   ├── mock-auth/              port 9000 — Spring Authorization Server
-│   ├── bff/                    port 8081 — OAuth2 client + reverse proxy
-│   └── resource-server/        port 8082 — JWT-protected banking API
+│   ├── bff/                    port 8080 — OAuth2 client + reverse proxy
+│   └── resource-server/        port 8081 — JWT-protected banking API
 ├── frontend/                   port 5173 — React 18 + Vite
 ├── scripts/                    *.bat / *.sh — start each service
 ├── wiremock-stubs/             Payment Processor stubs
@@ -52,16 +52,18 @@ Every spot you need to fill in is marked with `// TODO` and a Javadoc comment.
 |---|---|
 | `resource-server/.../service/TransactionService.java` | `applyDeposit`, `applyWithdrawal`, `applyTransferOut` |
 | `resource-server/.../security/JwtAuthConverter.java` | `convert(Jwt)` — JWT → local user mapping |
-| `resource-server/.../service/TransactionServiceTest.java` | 5 unit tests (3 Day 1, 2 Day 2) |
-| `resource-server/.../controller/AccountControllerIntegrationTest.java` | 4 integration tests |
-| `frontend/src/api/apiClient.js` | `readCsrfToken`, `apiFetch` |
-| `frontend/src/hooks/useMe.js` | `useEffect` to fetch `/api/v1/users/me` |
-| `frontend/src/routes/AccountsPage.jsx` | data fetch + four render states |
-| `frontend/src/routes/AccountDetailPage.jsx` | parallel fetch + render |
+| `resource-server/.../service/TransactionServiceTest.java` | 5 unit tests |
+| `resource-server/.../service/PaymentServiceTest.java` | 2 unit tests |
+| `resource-server/.../security/JwtAuthConverterTest.java` | 2 unit tests |
+| `resource-server/.../controller/AccountControllerIntegrationTest.java` | 3 integration tests |
 
-Everything else is pre-built — including the entire BFF security chain, the
-WebClient OIDC filter, and the Resource Server's SecurityFilterChain. You
-will read those during this tour but you will not modify them.
+The entire frontend, the BFF security chain, the WebClient OIDC filter, and
+the Resource Server's SecurityFilterChain are all **pre-built**. You will
+read them during this tour but will not modify them.
+
+**You write Java; you do not write any React or TypeScript.** The frontend
+exercises the BFF pattern that you secure on the backend; you'll demo and
+explain it but not author it.
 
 A grep is your friend:
 
@@ -77,16 +79,23 @@ Pick `GET /api/v1/accounts`. Open files in this order and note one sentence
 about each:
 
 1. `frontend/src/routes/AccountsPage.jsx` — who calls the API?
-2. `frontend/src/api/accounts.js` — what URL?
-3. `frontend/vite.config.js` — where does `/api` proxy to?
-4. `bff/.../controller/AccountsBffController.java` — how does the BFF forward?
-5. `bff/.../config/WebClientConfig.java` — how does the bearer token get attached?
-6. `resource-server/.../controller/AccountController.java` — who handles it on the RS?
-7. `resource-server/.../service/AccountService.java` — what does ownership look like?
-8. `resource-server/.../repository/AccountRepository.java` — final stop.
+2. `frontend/src/api/accounts.js` — what URL is hit?
+3. `frontend/src/api/apiClient.js` — how does the request carry the session and CSRF token?
+4. `frontend/vite.config.js` — where does `/api` proxy to?
+5. `bff/.../controller/AccountsBffController.java` — how does the BFF forward?
+6. `bff/.../config/WebClientConfig.java` — how does the bearer token get attached?
+7. `resource-server/.../controller/AccountController.java` — who handles it on the RS?
+8. `resource-server/.../service/AccountService.java` — what does ownership look like?
+9. `resource-server/.../repository/AccountRepository.java` — final stop.
 
 If at any point you don't understand what a class does, read its Javadoc.
 Every public class in the scaffold has one.
+
+**Why the frontend half matters even though you didn't write it:** the demo
+Q&A may include "walk us through how a transaction is submitted" or "what
+happens in the SPA when an API call returns 401?" Whichever team member
+demos the SPA must be able to point at the relevant lines. Spend the time
+here, not during the demo.
 
 ### Task 2.2 — Find the seven security gates
 

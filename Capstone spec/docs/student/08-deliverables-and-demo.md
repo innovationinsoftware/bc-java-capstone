@@ -40,7 +40,7 @@ the project. Include:
 - The exact start order: mock-auth, resource-server, BFF, frontend.
 - Which port each service listens on.
 - How to run the tests (`mvn test`, `npm test`).
-- Demo credentials (`alice/alice`, `admin/admin`).
+- Demo credentials (`alice` / `password`, `admin` / `password`).
 
 Don't paste your `application.yml` or your test scripts. Link to the relevant
 spec page if a reader needs deeper detail.
@@ -82,7 +82,34 @@ Edit `docs/demo-script.md`. Allocate roughly:
 Every team member must own at least one section. The rubric grades whether
 each member can answer questions about the code under their name in `git log`.
 
-## Task 8.5 — Demo dry-run
+## Task 8.5 — Demo Q&A prep
+
+The frontend was pre-built; the BFF security chain was pre-built. That
+makes the Q&A more important, not less — graders will probe to confirm
+your team understands the code you didn't author. The AI-Assisted
+Development slice (10%) is graded entirely during Q&A, and the
+Collaboration & Presentation slice (5%) penalises a presenter who can't
+answer about their own code.
+
+Rehearse one-paragraph answers to each of these:
+
+| Question | Where the answer lives |
+|---|---|
+| Walk me through how a transaction is submitted from the SPA. | `apiClient.js`, `TransactionForm.jsx`, `NewTransactionPage.jsx`, `AccountsBffController.java`, `TransactionService.java` |
+| What happens in the SPA when an API call returns 401? | `apiClient.js`, `useMe.js`, `AppLayout.jsx` |
+| How is the bearer token attached to BFF→RS calls? | `bff/.../config/WebClientConfig.java` |
+| Why is the JwtAuthConverter's principal name the local userId, not the JWT subject? | `resource-server/.../security/JwtAuthConverter.java` (ownership semantics) |
+| Why does the internal-transfer path produce two rows? | `TransactionService.applyTransferOut` and the `transferGroupId` column |
+| What stops a CUSTOMER from hitting `/api/v1/admin/users`? | RS `SecurityConfig` URL filter **plus** `@PreAuthorize` (defence in depth) |
+| How does the SPA send the CSRF token on a POST? | `apiClient.js` `readCsrfToken` + `X-XSRF-TOKEN` header |
+| Why is the external-transfer balance debit inside the try block? | The "no debit on failure" invariant in `applyTransferOut` |
+
+Don't memorise canned answers. Read the code, then talk about it like a
+colleague would. If the grader asks "Copilot wrote this — what does it do?"
+the right answer is "let me read it with you" and then doing it
+out-loud, not "I don't know."
+
+## Task 8.6 — Demo dry-run
 
 Run the entire demo top-to-bottom **before** the real one. Time it. The first
 dry-run is always 50% over. Cut features rather than rush.
@@ -96,7 +123,7 @@ Have a fallback plan:
 
 Practice on the same machine you will demo on.
 
-## Task 8.6 — Final repo audit
+## Task 8.7 — Final repo audit
 
 Before pushing the final commit, run:
 

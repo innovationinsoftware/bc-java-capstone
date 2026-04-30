@@ -48,9 +48,12 @@ You should land at the `SQL>` prompt without errors.
 Open four terminals (or four IntelliJ run configs). Start them **in this order**:
 
 1. `mock-auth` (port 9000) — the BFF cannot boot without `/.well-known/openid-configuration`
-2. `resource-server` (port 8082) — Flyway migrations apply on first start
-3. `bff` (port 8081)
+2. `resource-server` (port 8081) — Flyway migrations apply on first start
+3. `bff` (port 8080)
 4. Frontend (`npm run dev`, port 5173)
+
+Ports match Lab 4.6 — auth server on 9000, BFF on 8080, resource server
+on 8081 — so what you learned in that lab transfers directly here.
 
 If something fails at startup, fix it before starting the next one. A common
 trap is forgetting `JAVA_HOME` for Kafka commands on Windows — see the setup
@@ -64,10 +67,10 @@ The scaffolding ships an `http-tests/banking.http` file. Open it in IntelliJ
 | Request | Expected |
 |---|---|
 | `GET http://localhost:9000/.well-known/openid-configuration` | 200, JSON metadata |
-| `GET http://localhost:8082/health` | 200, `{"status":"UP"}` |
-| `GET http://localhost:8081/health` | 200 |
-| `GET http://localhost:8082/api/v1/accounts` | **401** (no token) |
-| `GET http://localhost:8081/api/v1/accounts` | **401** or 302 (no session) |
+| `GET http://localhost:8081/health` | 200, `{"status":"UP"}` (Resource Server) |
+| `GET http://localhost:8080/health` | 200 (BFF) |
+| `GET http://localhost:8081/api/v1/accounts` | **401** (no token, direct to RS) |
+| `GET http://localhost:8080/api/v1/accounts` | **401** or 302 (no session, via BFF) |
 | `http://localhost:5173/` | renders the SPA shell |
 
 If any of these are red, **stop and fix infrastructure**. Code work assumes a

@@ -1,169 +1,161 @@
-# 06 — Frontend
+# 06 — Frontend Tour & Extra Backend Tests
 
-Day 2 afternoon. The React shell renders, routes work, components compile,
-and `NewTransactionPage` is pre-built. You will fill in the data-fetching
-layer (`apiFetch`, `useMe`) and the two page components that read account
-data.
+Day 2 mid-day. Two activities, ~90 minutes total:
 
-Re-read [`../05-frontend.md`](../05-frontend.md) before starting. The
-"Stack", "The API client", and "Knowing who's signed in" sections matter most.
+1. **Frontend tour** (~30 min) — read the React SPA, run it, prepare to demo
+   it. You write no JavaScript.
+2. **Extra backend unit tests** (~60 min) — fill in two small test classes
+   the rubric expects (`PaymentServiceTest`, `JwtAuthConverterTest`).
 
-## Task 6.1 — `apiFetch` and `readCsrfToken`
+## Why a "tour" instead of building the frontend
 
-**File:** `frontend/src/api/apiClient.js`
+The instructional intent of this capstone is to **make a React SPA secure**,
+not to teach you React. The bootcamp covered React conceptually plus one
+introductory lab — not enough to expect you to author the SPA from scratch.
+The scaffold ships a fully working React 18 + Vite + react-router SPA. You
+will demo it; you will be questioned on it; you will not modify it.
 
-This is the entire authentication surface in JavaScript. Every API call goes
-through `apiFetch`. Get this right and the rest of the frontend writes itself.
+Re-read [`../05-frontend.md`](../05-frontend.md) before this chapter — it
+documents the design. The tour confirms the implementation matches.
 
-**`readCsrfToken()`** — parse the `XSRF-TOKEN` cookie from `document.cookie`.
+---
 
-- `document.cookie` is a single string, "; "-separated `name=value` pairs.
-- Split on `"; "`, find the entry that `startsWith("XSRF-TOKEN=")`, take the
-  value after the `=`.
-- Return `undefined` if not found. Do **not** throw — the cookie may not yet
-  exist on the very first request.
+## Part 1 — Frontend tour
 
-**`apiFetch(path, init = {})`** — the wrapper:
+### Task 6.1 — Run the SPA end-to-end
 
-1. Determine method (`init.method ?? "GET"`) and uppercase it.
-2. Build a `Headers` from `init.headers ?? {}`.
-3. Default `Content-Type: application/json` when there's a body and no
-   Content-Type was set.
-4. For mutating methods (`POST | PUT | DELETE | PATCH`), read the CSRF token
-   and set `X-XSRF-TOKEN` if a token was found. Skip on `GET` and `HEAD`.
-5. Call `fetch(path, { ...init, headers, credentials: "same-origin" })`.
-6. On 401, throw `new ApiError(401, { detail: "Unauthorized" })`. Do **not**
-   redirect from here. (Why? See "Why throw on 401" below.)
-7. On any other non-OK status, parse the response body as JSON (catch parse
-   errors, default to `{}`) and throw `new ApiError(status, body)`.
-8. Return `undefined` for 204 No Content; otherwise return `res.json()`.
+With the full stack up (mock-auth, resource-server, bff, frontend), confirm
+each of these works in your browser. If any step fails, the issue is almost
+always a backend bug from chapters 03–05; fix it before continuing.
 
-**Why throw on 401 instead of redirecting?**
+1. Open `http://localhost:5173`. The SPA detects "no session" via
+   `useMe`'s 401, and renders the sign-in page.
+2. Click **Sign in**. The browser navigates to `http://localhost:9000/login`
+   on the mock-auth server.
+3. Sign in as `alice` / `password`.
+4. Land back at `http://localhost:5173/`. AccountsPage shows alice's seeded
+   accounts.
+5. Click an account. AccountDetailPage shows the balance and any
+   transactions.
+6. Click **New transaction**. Submit a deposit of 25.00. You return to the
+   account detail page; the new row is at the top.
+7. Submit an internal transfer between two of alice's accounts. Both
+   account detail pages show the matching `TRANSFER_OUT` / `TRANSFER_IN`
+   rows.
+8. Sign out. The next API call returns 401; the SPA renders the sign-in
+   page again.
+9. Sign in as `admin` / `password`. The admin nav link appears; the
+   `/admin/users` page lists users.
+10. Sign back in as `alice`. The admin nav link is hidden, and a direct
+    request to `/api/v1/admin/users` returns 403.
 
-Naïve approach: on 401, `window.location = "/login"`. Result: page loads,
-calls `/api/v1/users/me`, gets 401, redirects to `/login`, page loads, calls
-`/api/v1/users/me`, gets 401, redirect, page loads… infinite loop.
+If all ten steps work, the BFF pattern is alive on your machine. The demo
+walks roughly this same script.
 
-Throwing lets `useMe` catch the error and set `user = null`. `AppLayout`
-renders the sign-in page. No navigation happens — but the user clearly sees
-a sign-in link. The browser only navigates when the user clicks it.
+### Task 6.2 — Read the four files you need to explain
 
-> **Note:** the example in [`../05-frontend.md`](../05-frontend.md) does
-> both — calls `window.location.assign(LOGIN_URL)` *and* throws. The
-> scaffolding's apiClient takes the safer throw-only path, documented in
-> the file's own Javadoc. Follow the scaffolding pattern.
+You will be asked about these in the demo. Read each one with a teammate;
+agree on a one-sentence answer to the corresponding question.
 
-**Why `same-origin` and not `include`?**
+| File | Question you must answer |
+|---|---|
+| `frontend/src/api/apiClient.js` | How does a POST attach the CSRF token? What happens on 401? |
+| `frontend/src/hooks/useMe.js` | When does this run, and what does the rest of the app do with `user === null`? |
+| `frontend/src/routes/AccountsPage.jsx` | How does it render a different UI for loading, empty, error, and loaded? |
+| `frontend/src/components/TransactionForm.jsx` | What client-side validation runs before the POST hits the BFF? |
 
-Vite proxies `/api`, `/login`, `/logout`, `/oauth2` to the BFF on `:8081`.
-From the browser's point of view everything is on `localhost:5173` — same
-origin. `same-origin` is safer than `include` because it doesn't send cookies
-to actual cross-origin URLs by accident. (`vite.config.js` already declares
-those proxies.)
+Each file is ~30 lines. Five minutes per file is enough.
 
-## Task 6.2 — `useMe`
+### Task 6.3 — Verify the BFF pattern from the browser
 
-**File:** `frontend/src/hooks/useMe.js`
+Open DevTools while signed in. Confirm:
 
-Three lines of work in the `useEffect`:
+- **Cookies tab:** only `JSESSIONID` (HttpOnly = true) and `XSRF-TOKEN`
+  (HttpOnly = false). No third cookie. No `access_token` cookie.
+- **Local Storage** and **Session Storage:** both empty.
+- **Network tab → any `/api/v1/...` request:** the request has a
+  `Cookie:` header but **no `Authorization:` header**. The Bearer is
+  attached server-side by the BFF; the browser never sees it.
 
-- Call `apiFetch("/api/v1/users/me")`.
-- `.then(setUser)` — store the user object.
-- `.catch(() => setUser(null))` — on error (including 401), null out the user.
-- `.finally(() => setLoading(false))` — always clear the loading flag.
+If anything is off — for example, an `access_token` value sitting in
+session storage — the BFF pattern is broken on your build. The most likely
+cause is a backend bug from chapters 04 or 05; fix it before continuing.
 
-The `useState`s are already declared. Don't add other state.
+This is the rubric's headline check. Practice walking through it — the
+demo grader will ask.
 
-`AppLayout` calls `useMe()` and shows a loading spinner until `loading` is
-false, then either the sign-in page (`user === null`) or the authenticated
-layout. Don't add navigation logic to the hook itself.
+---
 
-## Task 6.3 — `AccountsPage`
+## Part 2 — Extra backend unit tests
 
-**File:** `frontend/src/routes/AccountsPage.jsx`
+The capstone rubric ([`../09-deliverables-and-rubric.md`](../09-deliverables-and-rubric.md))
+says "reasonable coverage of service + controller logic." The spec's
+testing chapter ([`../07-testing.md`](../07-testing.md)) lists which classes
+deserve tests. The previous chapters covered `TransactionService`,
+`AccountService` (via integration), and the global exception handler
+(pre-implemented). Two classes still have empty test files: `PaymentService`
+and `JwtAuthConverter`.
 
-The state hooks are already declared. You implement:
+### Task 6.4 — `PaymentServiceTest`
 
-1. **`useEffect`** — call `listAccounts()`, store in state, catch errors into
-   `error` state.
-2. **Render** — four states (the rubric explicitly grades all four):
-   - **Error:** `error !== null` → an error banner with the message.
-   - **Loading:** `accounts === null && error === null` → "Loading accounts…".
-   - **Empty:** `accounts.length === 0` → "You have no accounts yet." (Empty
-     ≠ loading; check `accounts === null` for loading and `accounts.length === 0`
-     for empty.)
-   - **Loaded:** render an `<h1>` and a `<ul>` of `<AccountCard>` components,
-     keyed by `account.accountId`.
+**File:** `resource-server/src/test/java/com/example/banking/service/PaymentServiceTest.java`
 
-The `<AccountCard>` component is already implemented. Just import it and use
-it.
+Fill in two `@Test` methods. The class has a `@MockBean` `RestClient`-style
+collaborator already wired up; you stub its responses.
 
-## Task 6.4 — `AccountDetailPage`
+| Test | What it proves |
+|---|---|
+| `submit_external_transfer_calls_processor_with_idempotency_header` | The payment processor receives the request with the `Idempotency-Key` header and the API key |
+| `submit_external_transfer_5xx_throws_payment_processor_exception` | A 5xx response from the stub causes `PaymentProcessorException`; balance is untouched |
 
-**File:** `frontend/src/routes/AccountDetailPage.jsx`
+Hints:
 
-You need both the account record **and** its transactions. Don't make two
-sequential requests — issue them in parallel with `Promise.all`:
+- WireMock is your collaborator pattern. The same patterns from Module 4 /
+  Lab 4.4 apply: stub a `POST /payments` mapping that returns 200 or 503,
+  invoke the service, assert on what the service returned or threw.
+- The scaffolding's `PaymentService` class has a Javadoc explaining how
+  it builds the request. Read it before writing the test.
+- Don't test what the framework does (HTTP plumbing). Test the contract
+  of *your* method: input shape → outbound call → output shape, and the
+  exception mapping on failure.
 
-```text
-Promise.all([getAccount(id), getTransactions(id)])
-  .then(([a, t]) => ...)
-  .catch(...)
+### Task 6.5 — `JwtAuthConverterTest`
+
+**File:** `resource-server/src/test/java/com/example/banking/security/JwtAuthConverterTest.java`
+
+Fill in two `@Test` methods.
+
+| Test | What it proves |
+|---|---|
+| `first_login_creates_bank_user_row_with_role_from_claim` | A JWT with `sub: "new-sub"` and `role: "ADMIN"` triggers a new `BANK_USERS` row with `ROLE_ADMIN` |
+| `subsequent_login_reuses_existing_row_and_role` | A JWT with the same `sub` returns the existing user; the role is taken from the **stored row**, not the JWT (so an in-DB demotion sticks) |
+
+Hints:
+
+- `BankUserRepository` is the only collaborator. Mock it.
+- Build a `Jwt` with `Jwt.withTokenValue("test").header("alg","none")
+  .claim("sub","...").claim("role","ADMIN").claim("email","x@y.com").build()`.
+- Assert on the returned `Authentication`'s `getName()` (must be local
+  userId, not the JWT subject) and its `GrantedAuthority` list.
+
+Run:
+
+```bash
+mvn -pl backend/resource-server test
 ```
 
-`accountId` comes from `useParams()`. Add it to the `useEffect` dependency
-array — otherwise React Router warnings fire when the user clicks a different
-account.
+Whole suite (yours + pre-implemented) should be green.
 
-Render states:
-
-- **Error:** show the message.
-- **Loading:** when either account or transactions is null.
-- **Loaded:** an `<h1>` with type/currency/balance, a `<Link>` to
-  `/transactions/new`, and a `<TransactionList>` of the transactions.
-
-`<TransactionList>` is already implemented.
-
-## Task 6.5 — End-to-end smoke test
-
-With the backend up:
-
-1. Sign in as `alice`.
-2. AccountsPage shows alice's accounts (you may need to seed them — see
-   `scaffolding/docs/1-setup.md` "Seeding Demo Accounts").
-3. Click an account. Detail page shows balance + transactions.
-4. Click "New transaction." (The pre-built `NewTransactionPage` opens.)
-   Submit a deposit of 25.00.
-5. You land on the account detail page; the new row is at the top of the
-   transaction list.
-6. Try a withdrawal larger than the balance. The form shows the server's
-   error message (`INSUFFICIENT_FUNDS`); the navigation does **not** happen.
-7. Submit an internal transfer between two of your accounts. The detail page
-   shows the matching `TRANSFER_OUT` row; the other account shows the
-   `TRANSFER_IN`.
-
-If any of this is broken, the issue is almost always one of:
-
-- Forgetting `credentials: "same-origin"` in `apiFetch`.
-- Missing CSRF header on POSTs.
-- Misconfigured Vite proxy.
-
-## Common pitfalls (graded)
-
-- Plain `<a href="...">` for in-app links. Use `<Link to="...">`. The exception
-  is the sign-in link — that one **must** be a real anchor because it leaves
-  the SPA. (See `AppLayout.jsx` for the precedent.)
-- `navigate(...)` during render. Only use it inside event handlers or `useEffect`.
-- Dropping the `*` route. The shell already handles 404s — don't remove it.
-- Treating `useParams()` values as numbers. They are always strings.
+---
 
 ## Done when
 
-- [ ] Sign in as alice end-to-end works.
-- [ ] AccountsPage and AccountDetailPage render the right state for loading
-      / empty / error / loaded.
-- [ ] Submitting a deposit, withdrawal, internal transfer, and external
-      transfer all work in the SPA.
-- [ ] DevTools still shows no tokens (re-verify after frontend changes).
+- [ ] All ten frontend smoke-test steps pass.
+- [ ] DevTools confirms cookies-only, no tokens in storage, no `Authorization`
+      header in `/api/v1/...` requests.
+- [ ] Each of the four "you must explain" files has an agreed one-sentence
+      answer per question.
+- [ ] `PaymentServiceTest` has two passing tests.
+- [ ] `JwtAuthConverterTest` has two passing tests.
 
 Next: [07-security-validation.md](./07-security-validation.md).
