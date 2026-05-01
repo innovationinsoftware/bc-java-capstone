@@ -37,7 +37,8 @@ chapters assume the code you wrote in earlier ones is in place.
 | 1 hr | Environment check (chapter 01) |
 | 1 hr | Codebase tour (chapter 02) |
 | 3 hrs | Deposit, Withdrawal, three unit tests (chapter 03) |
-| 3 hrs | JwtAuthConverter + two integration tests (chapter 04) |
+| 1.5 hrs | Read JwtAuthConverter + two integration tests (chapter 04) |
+| 1.5 hrs | Buffer — catch up on chapter 03 work or get a head start on chapter 05 reading |
 
 **Day 2 (~8 hours):**
 
@@ -51,8 +52,9 @@ chapters assume the code you wrote in earlier ones is in place.
 | 1 hr | Demo dry-run + final polish (chapter 08) |
 
 Day 2 is full but achievable. If you fall behind on Day 1, push the
-WITHDRAWAL unit tests into Day 2 morning — but do not skip the
-JwtAuthConverter. The whole RBAC story depends on it.
+WITHDRAWAL unit tests into Day 2 morning. The chapter 04 read on
+`JwtAuthConverter` is short — don't skip it; the whole RBAC story
+depends on understanding what that class does.
 
 ## What's pre-built (don't reinvent)
 
@@ -60,6 +62,8 @@ The following are **already implemented** in the scaffolding. Read them
 during the codebase tour; do not rewrite them.
 
 - Resource Server `SecurityConfig` filter chain
+- Resource Server `JwtAuthConverter` (JWT → local user mapping with
+  first-login auto-provisioning)
 - BFF `SecurityConfig` (session + CSRF + OAuth2 login)
 - BFF `WebClientConfig` (the OIDC bearer-token filter that makes BFF work)
 - All proxy controllers, DTOs, entities, repositories, exceptions, Kafka
@@ -107,7 +111,7 @@ trip over each other. Agree on this before writing code (write it down in
 
 | Lead role | Owns |
 |---|---|
-| Resource Server | TransactionService, JwtAuthConverter, RS tests, Kafka verification |
+| Resource Server | TransactionService, RS integration tests, Kafka verification, reading + explaining JwtAuthConverter |
 | Frontend | apiFetch, useMe, page components, smoke tests |
 | Quality / Security | Hardening sweep, SAST, demo script |
 

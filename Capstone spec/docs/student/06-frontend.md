@@ -126,6 +126,11 @@ Hints:
 
 **File:** `resource-server/src/test/java/com/example/banking/security/JwtAuthConverterTest.java`
 
+You're testing the pre-built `JwtAuthConverter` from chapter 04 — same
+class you read and answered questions about. The tests force you to walk
+through the converter's behaviour from the outside, which is the second
+half of understanding it.
+
 Fill in two `@Test` methods.
 
 | Test | What it proves |

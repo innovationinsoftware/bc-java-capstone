@@ -77,15 +77,16 @@ Every spot you need to fill in is marked with `// TODO` and a Javadoc comment.
 | File | What you implement |
 |---|---|
 | `resource-server/.../service/TransactionService.java` | `applyDeposit`, `applyWithdrawal`, `applyTransferOut` |
-| `resource-server/.../security/JwtAuthConverter.java` | `convert(Jwt)` — JWT → local user mapping |
 | `resource-server/.../service/TransactionServiceTest.java` | 5 unit tests |
 | `resource-server/.../service/PaymentServiceTest.java` | 2 unit tests |
-| `resource-server/.../security/JwtAuthConverterTest.java` | 2 unit tests |
-| `resource-server/.../controller/AccountControllerIntegrationTest.java` | 3 integration tests |
+| `resource-server/.../security/JwtAuthConverterTest.java` | 2 unit tests (against pre-built code) |
+| `resource-server/.../controller/AccountControllerIntegrationTest.java` | 3 integration tests (2 in chapter 04, 1 in chapter 05) |
 
-The entire frontend, the BFF security chain, the WebClient OIDC filter, and
-the Resource Server's SecurityFilterChain are all **pre-built**. You will
-read them during this tour but will not modify them.
+The entire frontend, the BFF security chain, the WebClient OIDC filter,
+the Resource Server's SecurityFilterChain, and the Resource Server's
+`JwtAuthConverter` are all **pre-built**. You will read them during this
+tour but will not modify them. You'll write tests against `JwtAuthConverter`
+in chapter 06.
 
 **You write Java; you do not write any React or TypeScript.** The frontend
 exercises the BFF pattern that you secure on the backend; you'll demo and
