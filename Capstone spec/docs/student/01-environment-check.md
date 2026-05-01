@@ -16,9 +16,9 @@ Confirm each tool is installed and on your PATH:
 | Oracle XE | 21c (Docker on `:1521` or standalone on `:1522`) |
 | Apache Kafka | 4.x in KRaft mode |
 
-If you are missing any of these, follow the setup guide in
-[`../../scaffolding/docs/1-setup.md`](../../scaffolding/docs/1-setup.md). It
-covers both the Docker Compose path and the standalone path.
+If you are missing any of these, follow the setup guide that ships with
+the scaffolding at `scaffolding/docs/1-setup.md`. It covers both the
+Docker Compose path and the standalone path.
 
 ## Tasks
 

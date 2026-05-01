@@ -4,8 +4,11 @@ Day 2 afternoon. ~90 minutes. You will run the hardening checks the rubric
 grades you on, plus one Checkmarx scan, one DAST baseline, and one custom
 banking payload class.
 
-Re-read [`../07-testing.md`](../07-testing.md) sections "Checkmarx SAST scan"
-and "DAST scan" before starting.
+The Testing & Security Validation slice is 15% of your grade. The rubric
+calls out: a SAST scan triaged in writing (fix / accept / defer per
+finding, with rescan results for fixes), a DAST run with at least one
+custom banking payload class, and a written security-decisions
+document.
 
 ## Task 7.1 — Hardening grep sweep (~10 min)
 

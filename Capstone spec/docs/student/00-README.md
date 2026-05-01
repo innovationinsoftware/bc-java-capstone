@@ -74,10 +74,20 @@ in the SPA when an API call returns 401?"
 
 ## What "done" looks like
 
-You are graded against the rubric in [`../09-deliverables-and-rubric.md`](../09-deliverables-and-rubric.md)
-and the checklist in [`../10-definition-of-done.md`](../10-definition-of-done.md).
-Read both on Day 1 morning. Print the DoD checklist; tick boxes only when you
-have **observed** the behaviour, not when you believe the code is right.
+The capstone is graded against a 7-section rubric (weights below). The
+full Definition of Done checklist is in chapter 08 — read it on Day 1
+morning, tick boxes only when you've **observed** the behaviour, not
+when you believe the code is right.
+
+| Section | Weight |
+|---|---|
+| Backend Implementation | 25% |
+| Frontend Implementation | 15% |
+| Security Integration | 20% |
+| Testing & Security Validation | 15% |
+| AI-Assisted Development | 10% |
+| Code Quality | 10% |
+| Collaboration & Presentation | 5% |
 
 ## Ground rules
 

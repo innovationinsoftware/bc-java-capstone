@@ -4,8 +4,34 @@ Day 2 morning. You will implement `applyTransferOut`, the most complex piece
 of the banking domain, then write the unit and integration tests that prove
 both branches behave under success and failure.
 
-Re-read the `POST /api/v1/transactions` and `TRANSFER_OUT` rules in
-[`../03-api-contract.md`](../03-api-contract.md) before starting.
+## Contract for `TRANSFER_OUT` (same endpoint as DEPOSIT/WITHDRAWAL)
+
+**Request body:**
+```json
+{
+  "accountId": "acc_001",
+  "type": "TRANSFER_OUT",
+  "amount": 200.00,
+  "counterparty": "acc_002",
+  "description": "moving savings"
+}
+```
+
+- `counterparty` — **required** for TRANSFER_OUT. If it matches one of
+  the caller's own account IDs → internal transfer. Otherwise → external
+  (Payment Processor call).
+- All other validation rules same as DEPOSIT/WITHDRAWAL (chapter 03).
+
+**Status codes (mapped by `GlobalExceptionHandler`):**
+
+| Result | HTTP | `code` |
+|---|---|---|
+| Internal transfer success | 201 | — (response body has **two** rows) |
+| External transfer success | 201 | — (response body has one row) |
+| Insufficient balance | 422 | `INSUFFICIENT_FUNDS` |
+| Counterparty missing/blank | 422 | `BUSINESS_RULE_VIOLATION` |
+| Payment Processor 4xx/5xx | 502 | `PAYMENT_PROCESSOR_ERROR` |
+| Account not owned | 404 | `NOT_FOUND` |
 
 ## The shape of the problem
 

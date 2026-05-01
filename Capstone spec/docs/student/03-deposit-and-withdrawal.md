@@ -3,9 +3,34 @@
 Day 1 morning. You will implement the two simplest transaction types in
 `TransactionService`, then write the unit tests that prove they behave.
 
-The contract these endpoints must meet is in
-[`../03-api-contract.md`](../03-api-contract.md) — re-read the
-`POST /api/v1/transactions` section before starting.
+## Contract for `POST /api/v1/transactions` (DEPOSIT and WITHDRAWAL)
+
+**Request body:**
+```json
+{
+  "accountId": "acc_001",
+  "type": "DEPOSIT",
+  "amount": 50.00,
+  "counterparty": null,
+  "description": "Paycheque"
+}
+```
+
+- `type` — `DEPOSIT` or `WITHDRAWAL` for this chapter (`TRANSFER_OUT` is
+  chapter 05).
+- `amount` — `BigDecimal`, > 0, up to 4 decimal places.
+- `counterparty` — must be `null` for DEPOSIT and WITHDRAWAL.
+- `description` — optional, max 255 chars.
+
+**Status codes (mapped by `GlobalExceptionHandler`):**
+
+| Result | HTTP | `code` |
+|---|---|---|
+| Success | 201 | — |
+| Bean Validation failure | 400 | `VALIDATION_FAILED` |
+| Account not owned by caller | 404 | `NOT_FOUND` |
+| Withdrawal would overdraft | 422 | `INSUFFICIENT_FUNDS` |
+| Counterparty present (not allowed) | 422 | `BUSINESS_RULE_VIOLATION` |
 
 ## What's already wired
 

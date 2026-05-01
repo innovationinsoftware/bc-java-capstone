@@ -7,11 +7,12 @@ codebase tour. What you implement is the converter that maps a validated
 JWT to a local user record, then the integration tests that prove the
 whole boundary behaves.
 
-Re-read [`../04-security.md`](../04-security.md) before starting. The
-Resource Server is the **stateless** half of the BFF design — no cookies,
-no CSRF, no sessions, no CORS. Only Bearer JWTs. The pre-built
+The Resource Server is the **stateless** half of the BFF design — no
+cookies, no CSRF, no sessions, no CORS. Only Bearer JWTs. The pre-built
 `SecurityConfig` reflects that: stateless session policy, CSRF disabled,
-two-layer admin gate (URL filter + `@PreAuthorize`).
+CORS disabled, JWT validation via `oauth2ResourceServer.jwt(...)`, and
+a two-layer admin gate (URL filter + `@PreAuthorize` on controller
+methods for defence in depth).
 
 Spend a few minutes reading the SecurityConfig before starting. The demo
 graders will ask you why each line is there.

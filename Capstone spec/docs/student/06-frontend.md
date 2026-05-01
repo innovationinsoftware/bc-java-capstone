@@ -15,8 +15,10 @@ introductory lab — not enough to expect you to author the SPA from scratch.
 The scaffold ships a fully working React 18 + Vite + react-router SPA. You
 will demo it; you will be questioned on it; you will not modify it.
 
-Re-read [`../05-frontend.md`](../05-frontend.md) before this chapter — it
-documents the design. The tour confirms the implementation matches.
+The frontend uses Vite + React 18 + react-router-dom v6. Same-origin in
+dev — Vite proxies `/api`, `/login`, `/logout`, `/oauth2` to the BFF on
+port 8080. There is **no OAuth library in the SPA** — Spring on the BFF
+handles the entire OAuth flow at the network layer.
 
 ---
 
@@ -88,13 +90,14 @@ demo grader will ask.
 
 ## Part 2 — Extra backend unit tests
 
-The capstone rubric ([`../09-deliverables-and-rubric.md`](../09-deliverables-and-rubric.md))
-says "reasonable coverage of service + controller logic." The spec's
-testing chapter ([`../07-testing.md`](../07-testing.md)) lists which classes
-deserve tests. The previous chapters covered `TransactionService`,
-`AccountService` (via integration), and the global exception handler
-(pre-implemented). Two classes still have empty test files: `PaymentService`
-and `JwtAuthConverter`.
+The capstone rubric (chapter 08) grades "reasonable coverage of service
++ controller logic" under Testing & Security Validation (15%). The
+classes worth covering are `TransactionService`, `AccountService` (via
+integration), `JwtAuthConverter`, `PaymentService`,
+`GlobalExceptionHandler`, and `TransactionEventPublisher`. Previous
+chapters covered the first two, and the global exception handler +
+event publisher are pre-implemented. Two classes still have empty test
+files: `PaymentService` and `JwtAuthConverter`.
 
 ### Task 6.4 — `PaymentServiceTest`
 

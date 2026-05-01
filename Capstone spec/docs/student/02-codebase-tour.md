@@ -22,8 +22,34 @@ scaffolding/
 └── http-tests/                 banking.http — IntelliJ HTTP client
 ```
 
-The full architecture is in [`../01-architecture.md`](../01-architecture.md). Read
-that first if you have not yet.
+### Architecture in 60 seconds
+
+The capstone uses the **Backend-for-Frontend (BFF)** pattern. The browser
+only ever talks to the BFF over a same-origin HttpOnly session cookie.
+Tokens never reach JavaScript.
+
+```
+Browser ── JSESSIONID + XSRF cookie ──► BFF (8080)
+                                         │
+                                         │ Bearer (OIDC id_token)
+                                         ▼
+                                Resource Server (8081)
+                                         │
+                                         ├──► Oracle XE
+                                         ├──► Kafka topic
+                                         └──► Payment Processor (WireMock)
+
+Mock Auth Server (9000) issues tokens to the BFF via OAuth2 Authorization
+Code + PKCE during sign-in.
+```
+
+The browser holds only an HttpOnly session cookie. The BFF holds the
+OAuth2 tokens server-side, keyed by session ID. Each `/api/v1/**` request
+from the SPA arrives at the BFF with the cookie; the BFF's `WebClient`
+attaches the user's id_token as a Bearer header and proxies to the RS.
+The RS validates the JWT (issuer, audience, signature, expiry) and runs
+its business logic. JavaScript never sees a token — that's the headline
+benefit of BFF over pure-SPA designs.
 
 ## What is already done for you
 
@@ -109,8 +135,8 @@ The capstone is graded heavily on security. Locate each of these in the code:
 6. CSRF token cookie configuration on the BFF
 7. CSRF eager-load filter on the BFF (already wired — find it; understand why)
 
-You won't pass [`../10-definition-of-done.md`](../10-definition-of-done.md) without
-all seven. Knowing where they live is half the battle.
+You won't pass the Definition of Done checklist (chapter 08) without all
+seven. Knowing where they live is half the battle.
 
 ### Task 2.3 — Read the schema
 

@@ -4,31 +4,95 @@ Day 2, final hour. The code works, the scan is run. Time to package, polish,
 and present. This chapter is intentionally brief — you've used most of your
 time on real work.
 
-The authoritative checklists are in [`../09-deliverables-and-rubric.md`](../09-deliverables-and-rubric.md)
-and [`../10-definition-of-done.md`](../10-definition-of-done.md). This chapter
-adds the practical "how to actually finish" steps.
+## Rubric weights (recap)
+
+| Section | Weight |
+|---|---|
+| Backend Implementation | 25% |
+| Frontend Implementation | 15% |
+| Security Integration | 20% |
+| Testing & Security Validation | 15% |
+| AI-Assisted Development | 10% |
+| Code Quality | 10% |
+| Collaboration & Presentation | 5% |
 
 ## Task 8.1 — Run the Definition of Done checklist
 
-Print [`../10-definition-of-done.md`](../10-definition-of-done.md). Tick each
-box only when you have **observed** the behaviour, not when you believe the
-code is right.
+Tick each box only when you have **observed** the behaviour, not when you
+believe the code is right. The grader will run the same list. Items are
+grouped; work top-down.
 
-If anything is unchecked, work it. There is no negotiation here — the
-instructor will run the same checklist during grading.
+**Repository**
+- [ ] Single GitHub repo, public or instructor-accessible.
+- [ ] Root `README.md` runs the project on a fresh machine in < 15 min.
+- [ ] `.env.example` documents every env var; no real secrets committed.
+- [ ] `git log --pretty=format:"%an" | sort | uniq -c` shows commits from
+      **every** team member. (One person with 90% of commits = automatic
+      fail of the 5% Collaboration & Presentation slice.)
+- [ ] No `// TODO`s left in code that block grading.
 
-The most commonly-failed items:
+**Backend**
+- [ ] `mvn -f backend/pom.xml test` runs to completion across all three
+      modules and is green.
+- [ ] All four services start cleanly: mock-auth (9000), resource-server
+      (8081), bff (8080), frontend (5173).
+- [ ] No `application.yml` has a hard-coded `client_secret`, password, or
+      API key.
+- [ ] `BANK_USERS`, `ACCOUNTS`, `TRANSACTIONS` tables exist with the
+      schema constraints.
+- [ ] `BigDecimal` is used everywhere money is stored or computed.
+      No `double`.
 
-- `mvn -f backend/pom.xml test` runs to completion (across all three modules)
-  and is green.
-- `npm install` from a clean checkout works, `npm run dev` boots, `npm run build`
-  produces a static bundle without errors.
-- DevTools shows **only** `JSESSIONID` (HttpOnly) and `XSRF-TOKEN`. Local
-  storage and session storage are empty.
-- `git log --pretty=format:"%an"` shows commits from every team member. (A
-  team where one person has 90% of the commits loses the entire 5%
-  Collaboration & Presentation slice.)
-- A non-team-member can clone the repo and run it in under 15 minutes.
+**Frontend (pre-built — verify it still works)**
+- [ ] `npm install` from a clean checkout works.
+- [ ] `npm run dev` boots and serves on `http://localhost:5173`.
+- [ ] `npm run build` produces a static bundle without errors.
+- [ ] `grep -r "oidc-client-ts\|react-oidc-context" frontend/src` returns
+      nothing.
+
+**Security**
+- [ ] Sign in works end-to-end (browser → BFF → mock-auth → BFF → SPA).
+- [ ] DevTools shows **only** `JSESSIONID` (HttpOnly) and `XSRF-TOKEN`.
+      Session storage and local storage are empty.
+- [ ] `curl http://localhost:8081/api/v1/accounts` direct to RS (no
+      Bearer) → 401.
+- [ ] Customer hitting `/api/v1/admin/users` → 403.
+- [ ] Customer hitting another customer's `/api/v1/accounts/{id}` → **404**
+      (not 403).
+- [ ] Sign out → next API call → 401.
+- [ ] CSRF: `POST` with no `X-XSRF-TOKEN` → 403; with the right header
+      → 200.
+- [ ] No `console.log(token)` or `log.info("token=...")` anywhere.
+
+**Functionality (live, walk through in the SPA)**
+- [ ] Sign in as `alice` / `password` — `BANK_USERS` row appears.
+- [ ] AccountsPage shows your accounts.
+- [ ] Submit a deposit — balance updates, Kafka consumer prints the event.
+- [ ] Withdrawal exceeding balance → 422 `INSUFFICIENT_FUNDS`, balance
+      unchanged.
+- [ ] Internal transfer — both rows have the same `transferGroupId`,
+      both balances correct.
+- [ ] External transfer to `EXT-ACCT-001`: amount ≤ 10000 → success;
+      amount > 10000 → 502, balance unchanged.
+- [ ] Sign in as `admin` / `password` — `/admin/users` works.
+
+**Testing & security validation**
+- [ ] All five `TransactionServiceTest` cases pass.
+- [ ] Both `PaymentServiceTest` cases pass.
+- [ ] Both `JwtAuthConverterTest` cases pass.
+- [ ] All seven `AccountControllerIntegrationTest` cases pass.
+- [ ] SAST scan run; `docs/sast-findings.md` populated; high-severity
+      findings remediated.
+- [ ] DAST baseline scan run; `docs/dast-payloads.md` populated.
+
+**Documentation**
+- [ ] `docs/architecture.md` — one diagram, one page.
+- [ ] `docs/security-decisions.md` — token storage, RBAC, CSRF, payment
+      processor key, error policy.
+- [ ] `docs/sast-findings.md` — one row per finding.
+- [ ] `docs/dast-payloads.md` — baseline + custom payloads.
+- [ ] `docs/team-plan.md` — who owned what.
+- [ ] `docs/demo-script.md` — agenda your team will follow.
 
 ## Task 8.2 — Polish the README
 
