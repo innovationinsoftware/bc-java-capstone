@@ -1,11 +1,24 @@
-# Banking Capstone — Scaffolding
+﻿# Banking Capstone — Scaffolding
 
 A full-stack banking application demonstrating enterprise Spring Boot patterns,
 OAuth2 / JWT security, Kafka event publishing, WireMock integration testing,
 and a React 18 single-page application.
 
-> **Students:** the workbook that drives what you build is provided seperately
-> This README documents the scaffolding's architecture and how to run it.
+> **Students**: start with [docs/0-student-guide.md](docs/0-student-guide.md) — it
+> walks you through every implementation step in order. Set up your environment first
+> by following [docs/1-setup.md](docs/1-setup.md).
+
+## What you will implement
+
+| File | What to implement |
+|---|---|
+| `resource-server/.../service/TransactionService.java` | `applyDeposit`, `applyWithdrawal`, `applyTransferOut` |
+| `resource-server/.../security/JwtAuthConverter.java` | `convert()` — JWT → local user mapping |
+| `resource-server/.../config/SecurityConfig.java` | Stateless JWT filter chain |
+| `bff/.../config/SecurityConfig.java` | Session + CSRF + OAuth2 login chain |
+| `bff/.../config/WebClientConfig.java` | OIDC Bearer filter for WebClient |
+| `resource-server/.../service/TransactionServiceTest.java` | 7 unit tests |
+| `resource-server/.../controller/AccountControllerIntegrationTest.java` | 7 integration tests |
 
 ## Architecture overview
 
@@ -35,7 +48,9 @@ Mock Auth Server  (Spring Authorization Server, port 9000)
 
 ## Quick start
 
-**TL;DR — open four Command Prompt windows:**
+See [docs/setup.md](docs/setup.md) for full prerequisites and step-by-step instructions.
+
+**TL;DR - open four Command Prompt windows:**
 
 ```bat
 REM 1. Mock Auth Server
@@ -102,7 +117,7 @@ scaffolding\
 +-- frontend\                         React 18 + Vite SPA
 |   +-- src\
 |       +-- api\                      apiFetch + per-resource modules
-|       +-- hooks\                    useMe hook
+|       +-- auth\                     useMe hook + RequireAuth / RequireRole
 |       +-- components\               AccountCard, TransactionList, TransactionForm, ErrorBanner
 |       +-- routes\                   Page components
 +-- docs\                             Architecture, security decisions, demo script, etc.
@@ -111,12 +126,17 @@ scaffolding\
 +-- http-tests\                       IntelliJ HTTP client test file
 ```
 
+## Key design decisions
+
+See [docs/4-security-decisions.md](docs/4-security-decisions.md) for the full
+security rationale (BFF pattern, JwtAuthConverter, multi-issuer decoder).
+
 ## Common gotchas
 
-- **Flyway error: "Found non-empty schema(s) without baseline"** — re-run
+- **Flyway error: "Found non-empty schema(s) without baseline"** - re-run
   `scripts\setup-oracle.sql` to drop and recreate the `bankapp` user.
-- **Oracle "ORA-12514"** — check the PDB name with `lsnrctl status` and update
+- **Oracle "ORA-12514"** - check the PDB name with `lsnrctl status` and update
   `ORACLE_URL` in `.env`.
-- **WireMock JAR missing** — `start-wiremock.bat` downloads it automatically on
+- **WireMock JAR missing** - `start-wiremock.bat` downloads it automatically on
   first run via PowerShell. If the VM has no internet access, manually place
   `wiremock-standalone-3.6.0.jar` in `scripts\.cache\`.
