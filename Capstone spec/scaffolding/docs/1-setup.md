@@ -7,15 +7,15 @@
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Google Cloud OAuth2 Setup](#google-cloud-oauth2-setup)
-3. [Infrastructure Setup — Choose Your Path](#infrastructure-setup--choose-your-path)
-   - [Option A: Docker Compose](#option-a-docker-compose-recommended)
-   - [Option B: Local Installation](#option-b-local-installation-no-docker)
-4. [Backend — IntelliJ Run Configuration](#backend--intellij-run-configuration)
-5. [Seeding Demo Accounts](#seeding-demo-accounts)
-6. [Frontend — Vite Dev Server](#frontend--vite-dev-server)
-7. [Startup Order Checklist](#startup-order-checklist)
-8. [Known Issues & Fixes Applied](#known-issues--fixes-applied)
+2. [Infrastructure Setup](#infrastructure-setup)
+   - [Oracle XE 21c](#oracle-xe-21c)
+   - [Apache Kafka](#apache-kafka)
+   - [WireMock](#wiremock)
+3. [Backend — IntelliJ Run Configuration](#backend--intellij-run-configuration)
+4. [Seeding Demo Accounts](#seeding-demo-accounts)
+5. [Frontend — Vite Dev Server](#frontend--vite-dev-server)
+6. [Startup Order Checklist](#startup-order-checklist)
+7. [Known Issues & Fixes Applied](#known-issues--fixes-applied)
 
 ---
 
@@ -27,110 +27,25 @@
 | IntelliJ IDEA | 2024+ | Used as the backend IDE and build tool |
 | Node.js | 18+ | For the Vite frontend dev server |
 | npm | 9+ | Comes with Node.js |
-| **Docker Desktop** | Any recent | **Option A only** — must be running before starting containers |
 
 ---
 
-## Google Cloud OAuth2 Setup
+## Infrastructure Setup
 
-The application supports **Google OIDC** as well as a local **mock authorization server** for demo/testing.
+The capstone needs three backing services, all run natively on your VM:
 
-### Setting Up Google OAuth2 (Optional — for Google login)
+| Service | Port | Purpose |
+|---|---|---|
+| Oracle XE 21c | 1521 | Primary database |
+| Apache Kafka | 9092 | Event streaming |
+| WireMock | 8089 | Payment processor stub |
 
-1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
-2. Create an **OAuth 2.0 Client ID** of type **Web Application**.
-3. Add the following **Authorized Redirect URIs**:
-   ```
-   http://localhost:8080/login/oauth2/code/google
-   ```
-4. Note your **Client ID** and **Client Secret**.
-5. Add them to the BFF's `application.yml` or pass as environment variables:
-
-   ```
-   GOOGLE_CLIENT_ID=<your-client-id>
-   GOOGLE_CLIENT_SECRET=<your-client-secret>
-   ```
-
-> [!NOTE]
-> If you skip Google setup you can still use the **Demo login** (`alice` / `password` or `admin` / `password`) via the mock authorization server on port 9000.
-
-> [!IMPORTANT]
-> Never commit `client_secret` to version control.
+You install and start each one as described below. The Kafka and WireMock
+helper scripts in `scripts/` handle most of the busywork.
 
 ---
 
-## Infrastructure Setup — Choose Your Path
-
-The capstone needs three backing services:
-
-| Service | Docker port | Standalone port | Purpose |
-|---|---|---|---|
-| Oracle XE 21c | 1521 | 1522 | Primary database |
-| Apache Kafka | 9092 | 9092 | Event streaming |
-| WireMock | 8089 | 8089 | Payment processor stub |
-
----
-
-### Option A: Docker Compose (Recommended)
-
-Use this path if Docker Desktop is installed and working on your machine.
-
-#### Start all services
-
-```powershell
-# From the solution/ directory
-docker compose up -d
-```
-
-#### Service details
-
-| Service | Image |
-|---|---|
-| `oracle` | `gvenzl/oracle-xe:21-slim` |
-| `zookeeper` | `confluentinc/cp-zookeeper:7.5.0` |
-| `kafka` | `confluentinc/cp-kafka:7.5.0` |
-| `wiremock` | `wiremock/wiremock:3.3.1` |
-
-#### Wait for Oracle
-
-Oracle XE takes **30–90 seconds** to fully initialize on first run:
-
-```powershell
-docker logs -f capstone-oracle
-```
-
-Wait until you see: `DATABASE IS READY TO USE`
-
-#### Oracle credentials (Docker)
-
-| Variable | Value |
-|---|---|
-| `APP_USER` | `bankapp` |
-| `APP_USER_PASSWORD` | `bankapp` |
-| SYS/SYSTEM password | `my_secure_password` |
-
-#### Stop services
-
-```powershell
-docker compose down
-# Full reset (wipes database volume):
-docker compose down -v
-```
-
-> [!CAUTION]
-> `docker compose down -v` deletes all data. You will need to re-seed demo accounts after the next startup.
-
----
-
-### Option B: Local Installation (No Docker)
-
-Use this path if Docker is not available or not working on your machine.
-
-You need to install and start three services manually: **Oracle XE**, **Kafka**, and **WireMock**.
-
----
-
-#### B1. Oracle XE 21c (Local)
+### Oracle XE 21c
 
 **Install**
 
@@ -144,12 +59,8 @@ You need to install and start three services manually: **Oracle XE**, **Kafka**,
 Open SQL*Plus (installed with Oracle) and run the setup script:
 
 ```powershell
-C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus sys/<sys-password>@//localhost:1522/XEPDB1 as sysdba @scripts\setup-oracle.sql
+sqlplus sys/password@localhost:1521/XEPDB1 as sysdba @scripts\setup-oracle.sql
 ```
-
-> [!NOTE]
-> Standalone Oracle XE uses port **1522** (not 1521). Port 1521 is for Docker.
-> sqlplus is at `C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus.exe` (e.g. `C:\app\johndoe\product\21c\dbhomeXE\bin\sqlplus.exe`)
 
 > [!TIP]
 > This script is **rerunnable** — it drops and recreates `bankapp` if it already exists.
@@ -158,12 +69,12 @@ C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus sys/<sys-password>@//localhos
 **Verify connection**
 
 ```powershell
-sqlplus bankapp/bankapp_password@//localhost:1522/XEPDB1
+sqlplus bankapp/bankapp_password@//localhost:1521/XEPDB1
 ```
 
 ---
 
-#### B2. Apache Kafka (Local — KRaft mode, no Zookeeper)
+### Apache Kafka (KRaft mode, no Zookeeper)
 
 Kafka 4.x runs in **KRaft mode** — no Zookeeper required.
 
@@ -248,7 +159,7 @@ Expected: empty output (no topics yet). The `ERROR Reconfiguration failed` line 
 
 ---
 
-#### B3. WireMock (Local)
+### WireMock
 
 WireMock runs as a standalone JAR. The `start-wiremock.bat` script downloads the JAR automatically on first run (into `scripts\.cache\`) and points it at the repo's stub mappings — no manual file copying needed.
 
@@ -308,23 +219,17 @@ Set these in the IntelliJ run/debug configuration under **Environment variables*
 
 **Resource Server (port 8081):**
 
-| Variable | Docker value | Standalone value | Notes |
-|---|---|---|---|
-| `ORACLE_PASSWORD` | `bankapp_password` | `bankapp_password` | Must match the DB password |
-| `ORACLE_URL` | *(omit — default used)* | `jdbc:oracle:thin:@//localhost:1522/XEPDB1` | **Standalone only** — port is 1522 |
-| `ORACLE_USER` | *(omit — default `bankapp`)* | `bankapp` | Only needed if you used a different username |
-| `GOOGLE_CLIENT_ID` | `<your-google-client-id>` | `<your-google-client-id>` | Required only if using Google login |
+| Variable | Value | Notes |
+|---|---|---|
+| `ORACLE_URL` | `jdbc:oracle:thin:@//localhost:1521/XEPDB1` | Required — port is 1521 |
+| `ORACLE_USER` | `bankapp` | Only needed if you used a different username |
+| `ORACLE_PASSWORD` | `bankapp_password` | Must match the DB password |
 
 **BFF (port 8080):**
 
-| Variable | Value | Notes |
-|---|---|---|
-| `GOOGLE_CLIENT_ID` | `<your-google-client-id>` | Required only if using Google login |
-| `GOOGLE_CLIENT_SECRET` | `<your-google-client-secret>` | Required only if using Google login |
-
-> [!NOTE]
-> For **Docker**, `ORACLE_URL` defaults to `jdbc:oracle:thin:@//localhost:1521/XEPDB1` — no need to set it.
-> For **standalone Oracle XE**, you must set `ORACLE_URL=jdbc:oracle:thin:@//localhost:1522/XEPDB1` in the IntelliJ run config.
+The BFF reads its OAuth2 client configuration from `application.yml`,
+pointed at the local mock authorization server on port 9000. No
+environment variables are required for authentication.
 
 ### Database Migrations
 
@@ -347,14 +252,8 @@ After first login, your user row is auto-created but has no accounts. Seed them 
 
 **2. Connect to Oracle:**
 
-*Docker:*
 ```powershell
-docker exec -it capstone-oracle sqlplus bankapp/bankapp_password@XEPDB1
-```
-
-*Local (standalone):*
-```powershell
-C:\app\<username>\product\21c\dbhomeXE\bin\sqlplus bankapp/bankapp_password@//localhost:1522/XEPDB1
+sqlplus bankapp/bankapp_password@//localhost:1521/XEPDB1
 ```
 
 **3. Find your USER_ID:**
@@ -404,28 +303,14 @@ The app will be available at **http://localhost:5173**.
 
 ## Startup Order Checklist
 
-### Option A — Docker Compose
-
-- [ ] **1.** Start Docker Desktop
-- [ ] **2.** `docker compose up -d` (from `solution/`)
-- [ ] **3.** Wait for Oracle: `docker logs -f capstone-oracle` → `DATABASE IS READY TO USE`
-- [ ] **4.** Start `mock-auth` (port 9000) in IntelliJ
-- [ ] **5.** Start `resource-server` (port 8081) in IntelliJ — confirm Flyway migrations applied
-- [ ] **6.** Start `bff` (port 8080) in IntelliJ
-- [ ] **7.** `npm run dev` in `solution/frontend/`
-- [ ] **8.** Open http://localhost:5173 and sign in
-- [ ] **9.** Seed demo accounts via SQL*Plus (first time only)
-
-### Option B — Local Installation
-
 - [ ] **1.** Ensure Oracle XE service is running (`OracleServiceXE` in Windows Services)
-- [ ] **2.** Confirm `ORACLE_URL=jdbc:oracle:thin:@//localhost:1522/XEPDB1` is set in IntelliJ resource-server run config
+- [ ] **2.** Confirm `ORACLE_URL=jdbc:oracle:thin:@//localhost:1521/XEPDB1` is set in IntelliJ resource-server run config
 - [ ] **3.** Start Kafka: run `scripts\start-kafka.bat` in its own terminal (leave it running)
 - [ ] **4.** Start WireMock: run `scripts\start-wiremock.bat` in its own terminal (leave it running)
 - [ ] **5.** Start `mock-auth` (port 9000) in IntelliJ
 - [ ] **6.** Start `resource-server` (port 8081) in IntelliJ — confirm Flyway migrations applied
 - [ ] **7.** Start `bff` (port 8080) in IntelliJ
-- [ ] **8.** `npm run dev` in `solution/frontend/`
+- [ ] **8.** `npm run dev` in `frontend/`
 - [ ] **9.** Open http://localhost:5173 and sign in
 - [ ] **10.** Seed demo accounts via SQL*Plus (first time only)
 
@@ -449,27 +334,19 @@ Migration checksum mismatch for migration version 2
 
 ---
 
-### ORA-18716: not in any time zone (Critical)
+### ORA-18716: not in any time zone
 
-**Symptom:** `ORA-18716: not in any time zone` on every authenticated request.
+**Symptom:** `ORA-18716: not in any time zone` on every authenticated request that touches a TIMESTAMP column.
 
-**Root Cause:** `gvenzl/oracle-xe:21-slim` does not ship Oracle timezone region data. Hibernate 6 + Oracle JDBC try to resolve timezone region names, which fails.
+**Root Cause:** Hibernate 6 + Oracle JDBC can try to resolve timezone region names against an Oracle install that lacks the region data. Local standalone Oracle XE 21c ships the region data, but the codebase keeps the defensive fixes in place.
 
-**Fixes applied:**
+**Fixes already applied (no action required):**
 
 | Layer | Fix |
 |---|---|
 | JDBC | `oracle.jdbc.timezoneAsRegion=false` in HikariCP `connection-properties` |
 | Hibernate | `hibernate.timezone.default_storage: NORMALIZE` |
 | Entities | `java.time.Instant` → `java.time.LocalDateTime` in all entities/DTOs |
-
----
-
-### docker-compose.yml — Wrong Environment Variable Name
-
-**Symptom:** Oracle starts but `bankapp` user is never created. Spring Boot gets `ORA-01017`.
-
-**Fix:** Use `APP_USER_PASSWORD`, not `APP_PASSWORD`.
 
 ---
 

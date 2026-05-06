@@ -9,8 +9,8 @@ set "ROOT_DIR=%SCRIPT_DIR%.."
 
 if exist "%ROOT_DIR%\.env" (
     echo Loading env vars from .env
-    for /f "usebackq tokens=1,* delims==" %%A in ("%ROOT_DIR%\.env") do (
-        if not "%%A"=="" if not "%%A:~0,1%"=="#" set "%%A=%%B"
+    for /f "usebackq tokens=1,* delims==" %%A in (`findstr /v /b "#" "%ROOT_DIR%\.env"`) do (
+        if not "%%A"=="" set "%%A=%%B"
     )
 ) else (
     echo No .env found -- using environment variables only.
