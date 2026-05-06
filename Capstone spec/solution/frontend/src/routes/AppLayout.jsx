@@ -33,11 +33,14 @@ function SignInPage() {
               <span role="img" aria-label="lock">🔐</span>
               Sign in (Demo)
             </a>
+            {/* Google sign-in disabled — the BFF's google client registration was removed.
+                Re-enable by un-commenting and restoring the BFF config + env vars.
             <div className="login-divider">or</div>
             <a href="/oauth2/authorization/google" className="login-btn">
               <GoogleLogo />
               Sign in with Google
             </a>
+            */}
           </div>
         </div>
       </main>
