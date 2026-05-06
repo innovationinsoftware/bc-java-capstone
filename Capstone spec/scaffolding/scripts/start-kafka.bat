@@ -12,7 +12,14 @@
 
 setlocal
 
-set "KAFKA_HOME=C:\kafka"
+if "%KAFKA_HOME%"=="" (
+    echo ERROR: KAFKA_HOME is not set.
+    echo Set KAFKA_HOME to your Kafka installation directory ^(typically C:\kafka^),
+    echo either in your user environment variables or in the shell before running this script:
+    echo   setx KAFKA_HOME C:\kafka          ^(persistent, new shells only^)
+    echo   set  KAFKA_HOME=C:\kafka          ^(current shell only^)
+    exit /b 1
+)
 
 if not exist "%KAFKA_HOME%\bin\windows\kafka-server-start.bat" (
     echo ERROR: Kafka not found at %KAFKA_HOME%
@@ -41,6 +48,7 @@ if "%JAVA_HOME%"=="" (
 )
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
+echo Using KAFKA_HOME: %KAFKA_HOME%
 echo Using JAVA_HOME: %JAVA_HOME%
 echo Starting Kafka broker on localhost:9092
 echo Press Ctrl-C to stop.

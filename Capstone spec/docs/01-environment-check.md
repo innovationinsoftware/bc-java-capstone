@@ -27,8 +27,6 @@ Docker Compose path and the standalone path.
 Choose one path (mix-and-match is fine, but document what you chose in
 `docs/team-plan.md`):
 
-- **Docker:** `docker compose up -d` from the scaffolding root. Wait until
-  `docker logs -f capstone-oracle` prints `DATABASE IS READY TO USE`.
 - **Standalone:** start Oracle XE (port 1522), Kafka (port 9092), and
   optionally WireMock (port 8089) using the helper scripts in `scripts/`.
 
