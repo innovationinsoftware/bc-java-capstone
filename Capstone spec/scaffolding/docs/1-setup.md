@@ -231,6 +231,23 @@ The BFF reads its OAuth2 client configuration from `application.yml`,
 pointed at the local mock authorization server on port 9000. No
 environment variables are required for authentication.
 
+### Mock-Auth Demo Users
+
+Mock-auth ships with two in-memory users (defined in `AuthorizationServerConfig.java`).
+There is no signup flow — these are the only credentials that work.
+
+| Username | Password   | Role     |
+|----------|------------|----------|
+| `alice`  | `password` | CUSTOMER |
+| `admin`  | `password` | ADMIN    |
+
+> [!NOTE]
+> The username is **not** the password. Both users share the literal password `password`.
+> These users live in mock-auth, not Oracle — the DB-side `BANK_USERS` row is created
+> on first login and linked by the JWT `sub` claim.
+
+---
+
 ### Database Migrations
 
 Flyway runs automatically on resource-server startup. Migrations are at:
@@ -248,7 +265,7 @@ solution/backend/resource-server/src/main/resources/db/migration/
 
 After first login, your user row is auto-created but has no accounts. Seed them manually.
 
-**1. Log in to the app at least once** at http://localhost:5173 (creates your `BANK_USERS` row).
+**1. Log in to the app at least once** at http://localhost:5173 as `alice` / `password` (creates your `BANK_USERS` row). See [Mock-Auth Demo Users](#mock-auth-demo-users).
 
 **2. Connect to Oracle:**
 
@@ -278,7 +295,10 @@ EXIT;
 **5. Refresh** http://localhost:5173 — both accounts should appear.
 
 > [!TIP]
-> To grant yourself ADMIN access:
+> The fastest way to get ADMIN access is to sign out and sign back in as `admin` / `password` —
+> mock-auth's `admin` user already has the ADMIN role on its JWT.
+>
+> To promote your own `alice`-linked row instead:
 > ```sql
 > UPDATE BANK_USERS SET ROLE = 'ADMIN' WHERE EMAIL = 'your@email.com';
 > COMMIT;
@@ -292,7 +312,7 @@ EXIT;
 ### Starting the Dev Server
 
 ```powershell
-cd solution/frontend
+cd scaffolding/frontend
 npm install     # First time only
 npm run dev
 ```
@@ -311,7 +331,7 @@ The app will be available at **http://localhost:5173**.
 - [ ] **6.** Start `resource-server` (port 8081) in IntelliJ — confirm Flyway migrations applied
 - [ ] **7.** Start `bff` (port 8080) in IntelliJ
 - [ ] **8.** `npm run dev` in `frontend/`
-- [ ] **9.** Open http://localhost:5173 and sign in
+- [ ] **9.** Open http://localhost:5173 and sign in as `alice` / `password` (or `admin` / `password` for ADMIN)
 - [ ] **10.** Seed demo accounts via SQL*Plus (first time only)
 
 ---
